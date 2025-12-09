@@ -7,13 +7,14 @@
         mc:Ignorable="d"
         Title="DesignSheet"
         Height="800"
-        Width="1300"
+        Width="1550"
         WindowStyle="None"
         ResizeMode="CanResize"
-        Background="#1e1e1e"
+        Background="White"
         Closing="MainWindow_Closing">
 
     <Window.Resources>
+
         <!-- Converters -->
         <local:StatusToBrushConverter x:Key="StatusToBrushConverter" />
         <local:DueDateToBrushConverter x:Key="DueDateToBrushConverter" />
@@ -21,38 +22,37 @@
         <local:RetailOeToBrushConverter x:Key="RetailOeToBrushConverter" />
         <local:ShaftTypeToCustomerBrushConverter x:Key="ShaftTypeToCustomerBrushConverter" />
 
-        <!-- Global dark defaults -->
+        <!-- Global text -->
         <Style TargetType="TextBlock">
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="Black"/>
         </Style>
 
+        <!-- Buttons -->
         <Style TargetType="Button">
             <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="Padding" Value="10,6"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#2d2d30"/>
-            <Setter Property="BorderBrush" Value="#3e3e42"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Background" Value="#d1d5db"/>
+            <Setter Property="BorderBrush" Value="#9ca3af"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
         <Style TargetType="TextBox">
             <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="Padding" Value="8,6"/>
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#2d2d30"/>
-            <Setter Property="BorderBrush" Value="#3e3e42"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#9ca3af"/>
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <!-- ✅ FIX: ComboBox and dropdown items white background -->
+        <!-- Dropdowns: white background -->
         <Style TargetType="ComboBox">
-            <Setter Property="Margin" Value="6,0,0,0"/>
-            <Setter Property="Padding" Value="8,4"/>
             <Setter Property="Foreground" Value="Black"/>
             <Setter Property="Background" Value="White"/>
-            <Setter Property="BorderBrush" Value="#3e3e42"/>
+            <Setter Property="BorderBrush" Value="#9ca3af"/>
             <Setter Property="BorderThickness" Value="1"/>
-            <Setter Property="IsEditable" Value="False"/>
+            <Setter Property="Padding" Value="6,3"/>
             <Setter Property="IsTextSearchEnabled" Value="True"/>
         </Style>
 
@@ -61,37 +61,45 @@
             <Setter Property="Background" Value="White"/>
         </Style>
 
-        <!-- Text inside grid cells -->
-        <Style x:Key="CellTextBlockStyle" TargetType="{x:Type TextBlock}">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="VerticalAlignment" Value="Center"/>
+        <!-- Column headers -->
+        <Style TargetType="{x:Type DataGridColumnHeader}">
+            <Setter Property="Background" Value="#f3f4f6"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="FontWeight" Value="SemiBold"/>
+            <Setter Property="BorderBrush" Value="#e5e7eb"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="8,6"/>
         </Style>
 
-        <!-- Base cell style (no conditional formatting here) -->
+        <Style x:Key="CellTextBlockStyle" TargetType="{x:Type TextBlock}">
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+        </Style>
+
+        <!-- FULL cell borders (all sides) -->
         <Style x:Key="BaseCellStyle" TargetType="{x:Type DataGridCell}">
-            <Setter Property="Foreground" Value="White"/>
-            <Setter Property="Background" Value="#1e1e1e"/>
-            <Setter Property="BorderBrush" Value="#333333"/>
-            <Setter Property="BorderThickness" Value="0,0,0,1"/>
+            <Setter Property="Foreground" Value="Black"/>
+            <Setter Property="Background" Value="White"/>
+            <Setter Property="BorderBrush" Value="#e5e7eb"/>
+            <Setter Property="BorderThickness" Value="1"/>
             <Setter Property="Padding" Value="6,3"/>
         </Style>
 
-        <!-- Row style: keep right-click selection only -->
-        <Style x:Key="DesignRowStyle" TargetType="{x:Type DataGridRow}">
-            <EventSetter Event="PreviewMouseRightButtonDown" Handler="DesignGridRow_PreviewMouseRightButtonDown"/>
-        </Style>
     </Window.Resources>
 
-    <Grid>
+    <Grid Background="White">
         <Grid.RowDefinitions>
-            <RowDefinition Height="42"/>
+            <RowDefinition Height="46"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
 
         <!-- Title bar -->
-        <Border Grid.Row="0" Background="#2d2d30" BorderBrush="#3e3e42" BorderThickness="0,0,0,1">
+        <Border Grid.Row="0"
+                Background="#0f766e"
+                BorderBrush="#0a4f4a"
+                BorderThickness="0,0,0,1">
             <Grid x:Name="TitleBar" MouseDown="TitleBar_MouseDown">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*"/>
@@ -101,24 +109,31 @@
                 </Grid.ColumnDefinitions>
 
                 <TextBlock Text="DesignSheet"
+                           Foreground="White"
                            VerticalAlignment="Center"
                            Margin="12,0,0,0"
-                           FontSize="14"
+                           FontSize="15"
                            FontWeight="SemiBold"/>
 
-                <Button Grid.Column="1" Content="—" Width="46" Height="26" VerticalAlignment="Center"
-                        Background="#2d2d30" Click="MinimizeButton_Click"/>
+                <Button Grid.Column="1" Content="—" Width="46" Height="28"
+                        VerticalAlignment="Center"
+                        Background="#9ca3af" Foreground="White" BorderBrush="#6b7280"
+                        Click="MinimizeButton_Click"/>
 
-                <Button Grid.Column="2" Content="☐" Width="46" Height="26" VerticalAlignment="Center"
-                        Background="#2d2d30" Click="MaximizeRestoreButton_Click"/>
+                <Button Grid.Column="2" Content="☐" Width="46" Height="28"
+                        VerticalAlignment="Center"
+                        Background="#9ca3af" Foreground="White" BorderBrush="#6b7280"
+                        Click="MaximizeRestoreButton_Click"/>
 
-                <Button Grid.Column="3" Content="✕" Width="46" Height="26" VerticalAlignment="Center"
-                        Background="#b00020" Click="CloseButton_Click"/>
+                <Button Grid.Column="3" Content="✕" Width="46" Height="28"
+                        VerticalAlignment="Center"
+                        Background="#9ca3af" Foreground="White" BorderBrush="#6b7280"
+                        Click="CloseButton_Click"/>
             </Grid>
         </Border>
 
         <!-- Toolbar -->
-        <Border Grid.Row="1" Background="#1e1e1e" BorderBrush="#3e3e42" BorderThickness="0,0,0,1" Padding="10">
+        <Border Grid.Row="1" Background="White" BorderBrush="#e5e7eb" BorderThickness="0,0,0,1" Padding="10">
             <DockPanel LastChildFill="False">
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Left">
@@ -127,157 +142,285 @@
                     <Button Content="Delete Row" Click="DeleteRow_Click"/>
                     <Button Content="Save" Click="Save_Click"/>
                     <Button Content="Change Password" Click="ChangePassword_Click"/>
-
-                    <TextBlock Text="View:" VerticalAlignment="Center" Margin="18,0,0,0"/>
-                    <ComboBox Width="120" SelectionChanged="ViewSizeComboBox_SelectionChanged">
-                        <ComboBoxItem Content="Standard" IsSelected="True"/>
-                        <ComboBoxItem Content="Medium"/>
-                        <ComboBoxItem Content="Large"/>
-                    </ComboBox>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
                     <TextBlock Text="Search:" VerticalAlignment="Center" Margin="0,0,6,0"/>
-                    <TextBox Width="260"
-                             Name="SearchTextBox"
-                             TextChanged="SearchTextBox_TextChanged"
-                             ToolTip="Type to filter rows"/>
+                    <TextBox Width="260" Name="SearchTextBox" TextChanged="SearchTextBox_TextChanged"/>
                 </StackPanel>
 
             </DockPanel>
         </Border>
 
-        <!-- DataGrid -->
-        <DataGrid Grid.Row="2"
-                  x:Name="DesignGrid"
-                  Background="#1e1e1e"
-                  Foreground="White"
-                  GridLinesVisibility="Horizontal"
-                  HeadersVisibility="Column"
-                  AutoGenerateColumns="False"
-                  CanUserAddRows="False"
-                  CanUserDeleteRows="False"
-                  CanUserReorderColumns="True"
-                  CanUserResizeColumns="True"
-                  CanUserSortColumns="True"
-                  RowStyle="{StaticResource DesignRowStyle}"
-                  CellStyle="{StaticResource BaseCellStyle}"
-                  LoadingRow="DesignGrid_LoadingRow"
-                  CellEditEnding="DesignGrid_CellEditEnding"
-                  Sorting="DesignGrid_Sorting"
-                  PreviewMouseLeftButtonDown="DesignGrid_PreviewMouseLeftButtonDown"
-                  MouseMove="DesignGrid_MouseMove"
-                  Drop="DesignGrid_Drop"
-                  AllowDrop="True">
+        <!-- Tabs -->
+        <TabControl Grid.Row="2" Background="White" BorderBrush="#e5e7eb">
+            <TabItem Header="Active">
+                <Grid Background="White">
+                    <DataGrid x:Name="DesignGrid"
+                              Background="White"
+                              Foreground="Black"
+                              GridLinesVisibility="All"
+                              HorizontalGridLinesBrush="#e5e7eb"
+                              VerticalGridLinesBrush="#e5e7eb"
+                              HeadersVisibility="Column"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserReorderColumns="True"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True"
+                              CellStyle="{StaticResource BaseCellStyle}"
+                              LoadingRow="DesignGrid_LoadingRow"
+                              CellEditEnding="DesignGrid_CellEditEnding"
+                              Sorting="DesignGrid_Sorting"
+                              AllowDrop="True"
+                              Drop="DesignGrid_Drop">
 
-            <DataGrid.Columns>
+                        <DataGrid.Columns>
+                            <!-- Drag handle -->
+                            <DataGridTemplateColumn Header="⇅" Width="36" IsReadOnly="True">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Border Background="Transparent" Padding="2">
+                                            <TextBlock Text="☰"
+                                                       HorizontalAlignment="Center"
+                                                       VerticalAlignment="Center"
+                                                       Cursor="SizeAll"
+                                                       PreviewMouseLeftButtonDown="DragHandle_PreviewMouseLeftButtonDown"/>
+                                        </Border>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
 
-                <!-- Retail (cell-only conditional) -->
-                <DataGridTextColumn Header="Retail" Binding="{Binding Retail}" Width="110">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding Retail, Converter={StaticResource RetailOeToBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- Retail: "", Y, N (with conditional colour) -->
+                            <DataGridTemplateColumn Header="Retail" Width="80">
+                                <DataGridTemplateColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding Retail, Converter={StaticResource RetailOeToBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTemplateColumn.CellStyle>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Retail}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding Retail, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="Y"/>
+                                            <ComboBoxItem Content="N"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <!-- OE (cell-only conditional) -->
-                <DataGridTextColumn Header="OE" Binding="{Binding OE}" Width="110">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding OE, Converter={StaticResource RetailOeToBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- OE: "", Y, N, A/L (with conditional colour) -->
+                            <DataGridTemplateColumn Header="OE" Width="70">
+                                <DataGridTemplateColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding OE, Converter={StaticResource RetailOeToBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTemplateColumn.CellStyle>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding OE}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding OE, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="Y"/>
+                                            <ComboBoxItem Content="N"/>
+                                            <ComboBoxItem Content="A/L"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <!-- Customer (cell-only conditional, driven by ShaftType converter) -->
-                <DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="160">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding ShaftType, Converter={StaticResource ShaftTypeToCustomerBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- Customer (conditional based on ShaftType) -->
+                            <DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="170"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding ShaftType, Converter={StaticResource ShaftTypeToCustomerBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
 
-                <DataGridTextColumn Header="Serial" Binding="{Binding SerialNumber}" Width="140"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Serial" Binding="{Binding SerialNumber}" Width="140"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="Day Due" Binding="{Binding DayDue}" Width="90"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <!-- Day Due dropdown -->
+                            <DataGridTemplateColumn Header="Day Due" Width="95">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding DayDue}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding DayDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="Monday"/>
+                                            <ComboBoxItem Content="Tuesday"/>
+                                            <ComboBoxItem Content="Wednesday"/>
+                                            <ComboBoxItem Content="Thursday"/>
+                                            <ComboBoxItem Content="Friday"/>
+                                            <ComboBoxItem Content="Saturday"/>
+                                            <ComboBoxItem Content="Sunday"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <!-- Date Due (cell-only conditional) -->
-                <DataGridTextColumn Header="Date Due" Binding="{Binding DateDueText}" Width="110">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding DateDueText, Converter={StaticResource DueDateToBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- Date Due (conditional) -->
+                            <DataGridTextColumn Header="Date Due" Binding="{Binding DateDueText}" Width="110"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}">
+                                <DataGridTextColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding DateDueText, Converter={StaticResource DueDateToBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTextColumn.CellStyle>
+                            </DataGridTextColumn>
 
-                <!-- Status (cell-only conditional) -->
-                <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="120">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding Status, Converter={StaticResource StatusToBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- Status dropdown + conditional -->
+                            <DataGridTemplateColumn Header="Status" Width="150">
+                                <DataGridTemplateColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding Status, Converter={StaticResource StatusToBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTemplateColumn.CellStyle>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Status}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding Status, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="quote"/>
+                                            <ComboBoxItem Content="assembly"/>
+                                            <ComboBoxItem Content="balancing"/>
+                                            <ComboBoxItem Content="booked in"/>
+                                            <ComboBoxItem Content="Paint Shop"/>
+                                            <ComboBoxItem Content="Picked Up"/>
+                                            <ComboBoxItem Content="Cancelled"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Qty" Binding="{Binding Qty}" Width="60"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Qty" Binding="{Binding Qty}" Width="60"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="What Is It" Binding="{Binding WhatIsIt}" Width="200"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="What Is It" Binding="{Binding WhatIsIt}" Width="200"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="PO" Binding="{Binding PO}" Width="120"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="PO" Binding="{Binding PO}" Width="120"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="What Are We Doing" Binding="{Binding WhatAreWeDoing}" Width="240"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="What Are We Doing" Binding="{Binding WhatAreWeDoing}" Width="240"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="Parts" Binding="{Binding Parts}" Width="160"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Parts" Binding="{Binding Parts}" Width="160"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
 
-                <DataGridTextColumn Header="Shaft Type" Binding="{Binding ShaftType}" Width="120"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <!-- Shaft Type dropdown -->
+                            <DataGridTemplateColumn Header="Shaft Type" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding ShaftType}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding ShaftType, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="Domestic"/>
+                                            <ComboBoxItem Content="Industrial"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <!-- Priority (cell-only conditional) -->
-                <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="90">
-                    <DataGridTextColumn.ElementStyle>
-                        <Style TargetType="TextBlock" BasedOn="{StaticResource CellTextBlockStyle}"/>
-                    </DataGridTextColumn.ElementStyle>
-                    <DataGridTextColumn.CellStyle>
-                        <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
-                            <Setter Property="Background"
-                                    Value="{Binding Priority, Converter={StaticResource PriorityToBrushConverter}}"/>
-                        </Style>
-                    </DataGridTextColumn.CellStyle>
-                </DataGridTextColumn>
+                            <!-- Priority dropdown + conditional -->
+                            <DataGridTemplateColumn Header="Priority" Width="110">
+                                <DataGridTemplateColumn.CellStyle>
+                                    <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
+                                        <Setter Property="Background" Value="{Binding Priority, Converter={StaticResource PriorityToBrushConverter}}"/>
+                                    </Style>
+                                </DataGridTemplateColumn.CellStyle>
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Priority}" Style="{StaticResource CellTextBlockStyle}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedValue="{Binding Priority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
+                                            <ComboBoxItem Content=""/>
+                                            <ComboBoxItem Content="high"/>
+                                            <ComboBoxItem Content="medium"/>
+                                            <ComboBoxItem Content="low"/>
+                                        </ComboBox>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
 
-                <DataGridTextColumn Header="Last User" Binding="{Binding LastUser}" Width="120"
-                                    ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Last User" Binding="{Binding LastUser}" Width="120"
+                                                ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                        </DataGrid.Columns>
 
-            </DataGrid.Columns>
-        </DataGrid>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="Finished (Picked Up / Cancelled)">
+                <Grid Background="White">
+                    <DataGrid x:Name="FinishedGrid"
+                              Background="White"
+                              Foreground="Black"
+                              GridLinesVisibility="All"
+                              HorizontalGridLinesBrush="#e5e7eb"
+                              VerticalGridLinesBrush="#e5e7eb"
+                              HeadersVisibility="Column"
+                              AutoGenerateColumns="False"
+                              CanUserAddRows="False"
+                              CanUserDeleteRows="False"
+                              CanUserReorderColumns="True"
+                              CanUserResizeColumns="True"
+                              CanUserSortColumns="True"
+                              CellStyle="{StaticResource BaseCellStyle}"
+                              LoadingRow="DesignGrid_LoadingRow"
+                              CellEditEnding="DesignGrid_CellEditEnding"
+                              Sorting="DesignGrid_Sorting"
+                              AllowDrop="False">
+
+                        <!-- Same columns as Active (you can tweak if you want fewer) -->
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Retail" Binding="{Binding Retail}" Width="80" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="OE" Binding="{Binding OE}" Width="70" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="170" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Serial" Binding="{Binding SerialNumber}" Width="140" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Day Due" Binding="{Binding DayDue}" Width="95" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Date Due" Binding="{Binding DateDueText}" Width="110" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Status" Binding="{Binding Status}" Width="150" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Qty" Binding="{Binding Qty}" Width="60" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="What Is It" Binding="{Binding WhatIsIt}" Width="200" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="PO" Binding="{Binding PO}" Width="120" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="What Are We Doing" Binding="{Binding WhatAreWeDoing}" Width="240" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Parts" Binding="{Binding Parts}" Width="160" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Shaft Type" Binding="{Binding ShaftType}" Width="120" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="110" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                            <DataGridTextColumn Header="Last User" Binding="{Binding LastUser}" Width="120" ElementStyle="{StaticResource CellTextBlockStyle}"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
     </Grid>
 </Window>

@@ -8,12 +8,15 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
+using System.Windows.Media;
 
 namespace DesignSheet
 {
     public partial class MainWindow : Window
     {
-        private readonly ObservableCollection<DesignItem> _rows = new();
+        private readonly ObservableCollection<DesignItem> _activeRows = new();
+        private readonly ObservableCollection<DesignItem> _finishedRows = new();
+
         private readonly string _branch;
         private readonly string _activeFile;
         private readonly string _finishedFile;
@@ -22,11 +25,13 @@ namespace DesignSheet
         private FileSystemWatcher? _finishedWatcher;
         private bool _suppressWatchReload;
 
+        private const string DragFormat = "DesignSheet.DesignItem";
+        private DesignItem? _dragItem;
+
         public MainWindow()
         {
-            _branch = string.IsNullOrWhiteSpace(AppConfig.CurrentBranch)
-                ? "headoffice"
-                : AppConfig.CurrentBranch;
+            // Prefer AppConfig values; fall back safely
+            _branch = string.IsNullOrWhiteSpace(AppConfig.CurrentBranch) ? "headoffice" : AppConfig.CurrentBranch;
 
             string baseFolder = string.IsNullOrWhiteSpace(AppConfig.BaseFolder)
                 ? @"S:\Public\DesignData"
@@ -46,59 +51,51 @@ namespace DesignSheet
         }
 
         // ----------------------------
-        // Helpers
+        // Status helpers
         // ----------------------------
 
         private static bool IsFinishedStatus(string? status) =>
-            string.Equals(status, "Picked Up", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(status, "Cancelled", StringComparison.OrdinalIgnoreCase);
+            string.Equals(status?.Trim(), "Picked Up", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(status?.Trim(), "Cancelled", StringComparison.OrdinalIgnoreCase);
 
         private static bool IsPaintShop(string? status) =>
-            string.Equals(status, "Paint Shop", StringComparison.OrdinalIgnoreCase);
+            string.Equals(status?.Trim(), "Paint Shop", StringComparison.OrdinalIgnoreCase);
 
-        private List<DesignItem> GetRealRowsSnapshot()
+        private static DateTime ParseDate(string? text)
         {
-            // strip spacer rows and clone to avoid binding side-effects
-            return _rows
-                .Where(r => !r.IsSpacer)
-                .Select(r => r.Clone())
-                .ToList();
+            if (!string.IsNullOrWhiteSpace(text) && DateTime.TryParse(text, out var dt))
+                return dt;
+            return DateTime.MaxValue;
         }
 
         // ----------------------------
-        // File I/O
+        // IO
         // ----------------------------
 
         private void LoadAllFromDisk()
         {
             _rows.Clear();
 
-            var active = File.Exists(_activeFile)
-                ? ReadDesignsFromFile(_activeFile)
-                : Enumerable.Empty<DesignItem>();
+            var active = File.Exists(_activeFile) ? ReadDesignsFromFile(_activeFile) : Enumerable.Empty<DesignItem>();
+            var finished = File.Exists(_finishedFile) ? ReadDesignsFromFile(_finishedFile) : Enumerable.Empty<DesignItem>();
 
-            var finished = File.Exists(_finishedFile)
-                ? ReadDesignsFromFile(_finishedFile)
-                : Enumerable.Empty<DesignItem>();
+            foreach (var d in active) _rows.Add(d);
+            foreach (var d in finished) _rows.Add(d);
 
-            foreach (var d in active)
-                _rows.Add(d);
-
-            foreach (var d in finished)
-                _rows.Add(d);
-
-            EnsureOrderingRules(); // also calls ApplyDateGrouping()
+            EnsureOrderingRulesAndGrouping();
         }
 
-        private void SaveAllToDiskAndRefreshUI()
+        private void SaveAllToDisk()
         {
             _suppressWatchReload = true;
             try
             {
-                var realRows = GetRealRowsSnapshot();
+                // Only write real rows (no spacer rows)
+                var real = _rows.Where(r => !r.IsSpacer).Select(r => r.Clone()).ToList();
 
-                var active = realRows.Where(d => !IsFinishedStatus(d.Status)).ToList();
-                var finished = realRows.Where(d => IsFinishedStatus(d.Status)).ToList();
+                // Split by finished status
+                var active = real.Where(r => !IsFinishedStatus(r.Status)).ToList();
+                var finished = real.Where(r => IsFinishedStatus(r.Status)).ToList();
 
                 WriteDesignsToFile(_activeFile, active);
                 WriteDesignsToFile(_finishedFile, finished);
@@ -107,40 +104,36 @@ namespace DesignSheet
             {
                 _suppressWatchReload = false;
             }
-
-            // Reload from disk so the UI always matches what was saved
-            LoadAllFromDisk();
         }
 
         private static IEnumerable<DesignItem> ReadDesignsFromFile(string path)
         {
             foreach (var line in File.ReadAllLines(path))
             {
-                if (string.IsNullOrWhiteSpace(line))
-                    continue;
+                if (string.IsNullOrWhiteSpace(line)) continue;
 
                 var cols = line.Split(',');
 
-                // Excel export may include an ID column
+                // Some old CSVs may have an extra leading column; handle offset
                 int offset = cols.Length >= 16 ? 1 : 0;
 
                 yield return new DesignItem
                 {
-                    Retail = cols.Length > offset + 0 ? cols[offset + 0] : string.Empty,
-                    OE = cols.Length > offset + 1 ? cols[offset + 1] : string.Empty,
-                    Customer = cols.Length > offset + 2 ? cols[offset + 2] : string.Empty,
-                    SerialNumber = cols.Length > offset + 3 ? cols[offset + 3] : string.Empty,
-                    DayDue = cols.Length > offset + 4 ? cols[offset + 4] : string.Empty,
-                    DateDueText = cols.Length > offset + 5 ? cols[offset + 5] : string.Empty,
-                    Status = cols.Length > offset + 6 ? cols[offset + 6] : string.Empty,
-                    Qty = cols.Length > offset + 7 ? cols[offset + 7] : string.Empty,
-                    WhatIsIt = cols.Length > offset + 8 ? cols[offset + 8] : string.Empty,
-                    PO = cols.Length > offset + 9 ? cols[offset + 9] : string.Empty,
-                    WhatAreWeDoing = cols.Length > offset + 10 ? cols[offset + 10] : string.Empty,
-                    Parts = cols.Length > offset + 11 ? cols[offset + 11] : string.Empty,
-                    ShaftType = cols.Length > offset + 12 ? cols[offset + 12] : string.Empty,
-                    Priority = cols.Length > offset + 13 ? cols[offset + 13] : string.Empty,
-                    LastUser = cols.Length > offset + 14 ? cols[offset + 14] : string.Empty
+                    Retail = cols.Length > offset + 0 ? cols[offset + 0] : "",
+                    OE = cols.Length > offset + 1 ? cols[offset + 1] : "",
+                    Customer = cols.Length > offset + 2 ? cols[offset + 2] : "",
+                    SerialNumber = cols.Length > offset + 3 ? cols[offset + 3] : "",
+                    DayDue = cols.Length > offset + 4 ? cols[offset + 4] : "",
+                    DateDueText = cols.Length > offset + 5 ? cols[offset + 5] : "",
+                    Status = cols.Length > offset + 6 ? cols[offset + 6] : "",
+                    Qty = cols.Length > offset + 7 ? cols[offset + 7] : "",
+                    WhatIsIt = cols.Length > offset + 8 ? cols[offset + 8] : "",
+                    PO = cols.Length > offset + 9 ? cols[offset + 9] : "",
+                    WhatAreWeDoing = cols.Length > offset + 10 ? cols[offset + 10] : "",
+                    Parts = cols.Length > offset + 11 ? cols[offset + 11] : "",
+                    ShaftType = cols.Length > offset + 12 ? cols[offset + 12] : "",
+                    Priority = cols.Length > offset + 13 ? cols[offset + 13] : "",
+                    LastUser = cols.Length > offset + 14 ? cols[offset + 14] : ""
                 };
             }
         }
@@ -151,21 +144,22 @@ namespace DesignSheet
 
             var lines = designs.Select(d =>
                 string.Join(",",
-                    d.Retail ?? string.Empty,
-                    d.OE ?? string.Empty,
-                    d.Customer ?? string.Empty,
-                    d.SerialNumber ?? string.Empty,
-                    d.DayDue ?? string.Empty,
-                    d.DateDueText ?? string.Empty,
-                    d.Status ?? string.Empty,
-                    d.Qty ?? string.Empty,
-                    d.WhatIsIt ?? string.Empty,
-                    d.PO ?? string.Empty,
-                    d.WhatAreWeDoing ?? string.Empty,
-                    d.Parts ?? string.Empty,
-                    d.ShaftType ?? string.Empty,
-                    d.Priority ?? string.Empty,
-                    d.LastUser ?? string.Empty));
+                    d.Retail ?? "",
+                    d.OE ?? "",
+                    d.Customer ?? "",
+                    d.SerialNumber ?? "",
+                    d.DayDue ?? "",
+                    d.DateDueText ?? "",
+                    d.Status ?? "",
+                    d.Qty ?? "",
+                    d.WhatIsIt ?? "",
+                    d.PO ?? "",
+                    d.WhatAreWeDoing ?? "",
+                    d.Parts ?? "",
+                    d.ShaftType ?? "",
+                    d.Priority ?? "",
+                    d.LastUser ?? ""
+                ));
 
             File.WriteAllLines(path, lines);
         }
@@ -175,7 +169,7 @@ namespace DesignSheet
             _activeWatcher?.Dispose();
             _finishedWatcher?.Dispose();
 
-            string folder = Path.GetDirectoryName(_activeFile) ?? ".";
+            var folder = Path.GetDirectoryName(_activeFile) ?? ".";
 
             _activeWatcher = new FileSystemWatcher(folder)
             {
@@ -201,209 +195,57 @@ namespace DesignSheet
             Dispatcher.Invoke(() =>
             {
                 try { LoadAllFromDisk(); }
-                catch { /* ignore transient locks */ }
+                catch { /* ignore transient read issues */ }
             });
         }
 
         // ----------------------------
-        // Ordering + Grouping
+        // Ordering + grouping
         // ----------------------------
 
-        private static DateTime ParseDate(string? text)
+        private void EnsureOrderingRulesAndGrouping()
         {
-            if (!string.IsNullOrWhiteSpace(text) && DateTime.TryParse(text, out var dt))
-                return dt;
-
-            return DateTime.MaxValue;
-        }
-
-        private void EnsureOrderingRules()
-        {
-            // normalize (no spacers) then rebuild list in correct order
-            var realRows = _rows.Where(r => !r.IsSpacer).ToList();
-
-            var top = realRows.Where(r => IsPaintShop(r.Status)).ToList();
-            var bottom = realRows.Where(r => IsFinishedStatus(r.Status)).ToList();
-
-            var middle = realRows.Except(top).Except(bottom)
-                .OrderBy(r => ParseDate(r.DateDueText))
-                .ToList();
-
-            _rows.Clear();
-            foreach (var r in top) _rows.Add(r);
-            foreach (var r in middle) _rows.Add(r);
-            foreach (var r in bottom) _rows.Add(r);
-
-            ApplyDateGrouping(); // add the single spacer after each group
-        }
-
-        // ✅ One spacer row AFTER each group (your request)
-        private void ApplyDateGrouping()
-        {
+            // Remove spacers then reorder then regroup with ONE spacer per date
             var real = _rows.Where(r => !r.IsSpacer).ToList();
+
+            var top = real.Where(r => IsPaintShop(r.Status)).ToList();
+            var bottom = real.Where(r => IsFinishedStatus(r.Status)).ToList();
+            var middle = real.Except(top).Except(bottom)
+                             .OrderBy(r => ParseDate(r.DateDueText))
+                             .ToList();
+
+            var ordered = new List<DesignItem>();
+            ordered.AddRange(top);
+            ordered.AddRange(middle);
+            ordered.AddRange(bottom);
+
             _rows.Clear();
 
-            if (real.Count == 0) return;
+            // group by DateDueText and add ONE spacer row after each group
+            var groups = ordered.GroupBy(r => r.DateDueText ?? string.Empty)
+                                .OrderBy(g => ParseDate(g.Key));
 
-            var byDate = real
-                .OrderBy(r => ParseDate(r.DateDueText))
-                .GroupBy(r => r.DateDueText ?? string.Empty);
-
-            foreach (var group in byDate)
+            foreach (var g in groups)
             {
-                foreach (var row in group)
-                    _rows.Add(row);
+                foreach (var row in g) _rows.Add(row);
 
-                _rows.Add(new DesignItem { IsSpacer = true, DateDueText = group.Key });
+                // ONE spacer only
+                _rows.Add(new DesignItem
+                {
+                    IsSpacer = true,
+                    DateDueText = g.Key
+                });
             }
         }
 
         // ----------------------------
-        // DataGrid handlers
+        // Window chrome
         // ----------------------------
-
-        private void DesignGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
-        {
-            if (e.Row.Item is not DesignItem item)
-                return;
-
-            // Spacer rows can be edited visually, but we never save them.
-            if (item.IsSpacer)
-                return;
-
-            item.LastUser = AppConfig.CurrentUserName;
-
-            // If user changed status to Picked Up/Cancelled, it must go to finished file
-            // If user changed to Paint Shop, it must bubble to top
-            if (IsFinishedStatus(item.Status) || IsPaintShop(item.Status))
-            {
-                // Save -> split -> write -> reload
-                SaveAllToDiskAndRefreshUI();
-            }
-            else
-            {
-                // For normal edits, still save and refresh to keep grouping/order correct
-                SaveAllToDiskAndRefreshUI();
-            }
-        }
-
-        private void DesignGrid_Sorting(object sender, DataGridSortingEventArgs e)
-        {
-            // Keep our custom ordering rules
-            e.Handled = true;
-            EnsureOrderingRules();
-        }
-
-        private void DesignGrid_LoadingRow(object sender, DataGridRowEventArgs e)
-        {
-            // You asked to remove the no-edit feature: allow interaction on all rows
-            e.Row.IsHitTestVisible = true;
-            e.Row.IsEnabled = true;
-        }
-
-        // ----------------------------
-        // Context menu row ops
-        // ----------------------------
-
-        private DesignItem? GetRowItemFromContext(object sender)
-        {
-            if (sender is not MenuItem mi) return null;
-
-            if (mi.DataContext is DesignItem ctxItem) return ctxItem;
-            if (mi.CommandParameter is DesignItem paramItem) return paramItem;
-
-            return DesignGrid.SelectedItem as DesignItem;
-        }
-
-        private void AddRowAbove_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetRowItemFromContext(sender);
-            if (target == null) return;
-
-            int index = _rows.IndexOf(target);
-            if (index < 0) index = 0;
-
-            _rows.Insert(index, new DesignItem
-            {
-                DayDue = target.DayDue,
-                DateDueText = target.DateDueText,
-                Status = target.Status,
-                LastUser = AppConfig.CurrentUserName
-            });
-
-            SaveAllToDiskAndRefreshUI();
-        }
-
-        private void AddRowBelow_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetRowItemFromContext(sender);
-            if (target == null) return;
-
-            int index = _rows.IndexOf(target);
-            if (index < 0) index = _rows.Count - 1;
-
-            _rows.Insert(index + 1, new DesignItem
-            {
-                DayDue = target.DayDue,
-                DateDueText = target.DateDueText,
-                Status = target.Status,
-                LastUser = AppConfig.CurrentUserName
-            });
-
-            SaveAllToDiskAndRefreshUI();
-        }
-
-        private void DuplicateRowBelow_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetRowItemFromContext(sender);
-            if (target == null) return;
-
-            int index = _rows.IndexOf(target);
-            if (index < 0) index = _rows.Count - 1;
-
-            var clone = target.Clone();
-            clone.LastUser = AppConfig.CurrentUserName;
-
-            _rows.Insert(index + 1, clone);
-
-            SaveAllToDiskAndRefreshUI();
-        }
-
-        // ----------------------------
-        // Toolbar / window handlers
-        // ----------------------------
-
-        private void ViewSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
-        {
-            if (!IsInitialized) return;
-
-            string size = (e.AddedItems.Count > 0 ? e.AddedItems[0]?.ToString() : null) ?? "Standard";
-
-            double fontSize = size switch
-            {
-                "Medium" => 14,
-                "Large" => 16,
-                _ => 12
-            };
-
-            DesignGrid.FontSize = fontSize;
-        }
-
-        private void Window_Closing(object? sender, CancelEventArgs e)
-        {
-            try
-            {
-                SaveAllToDiskAndRefreshUI();
-                AppConfig.SaveSettings();
-            }
-            catch { }
-        }
-
-        private void MainWindow_Closing(object sender, CancelEventArgs e) => Window_Closing(sender, e);
 
         private void TitleBar_MouseDown(object sender, MouseButtonEventArgs e)
         {
-            if (e.ChangedButton == MouseButton.Left) DragMove();
+            if (e.ChangedButton == MouseButton.Left)
+                DragMove();
         }
 
         private void MinimizeButton_Click(object sender, RoutedEventArgs e) => WindowState = WindowState.Minimized;
@@ -415,45 +257,62 @@ namespace DesignSheet
 
         private void CloseButton_Click(object sender, RoutedEventArgs e) => Close();
 
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            try
+            {
+                SaveAllToDisk();
+                AppConfig.SaveSettings();
+            }
+            catch { }
+        }
+
+        // ----------------------------
+        // Toolbar handlers
+        // ----------------------------
+
         private void Reload_Click(object sender, RoutedEventArgs e) => LoadAllFromDisk();
+
+        private void Save_Click(object sender, RoutedEventArgs e)
+        {
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
 
         private void AddRow_Click(object sender, RoutedEventArgs e)
         {
             var selected = DesignGrid.SelectedItem as DesignItem;
 
-            if (selected != null)
-            {
-                int index = _rows.IndexOf(selected);
-                if (index < 0) index = _rows.Count - 1;
+            // insert based on selection (ignore spacers)
+            int index = selected == null ? _rows.Count : _rows.IndexOf(selected);
+            if (index < 0) index = _rows.Count;
 
-                _rows.Insert(index + 1, new DesignItem
-                {
-                    DayDue = selected.DayDue,
-                    DateDueText = selected.DateDueText,
-                    Status = selected.Status,
-                    LastUser = AppConfig.CurrentUserName
-                });
-            }
-            else
+            var newItem = new DesignItem
             {
-                _rows.Add(new DesignItem { LastUser = AppConfig.CurrentUserName });
-            }
+                DateDueText = selected?.IsSpacer == false ? selected.DateDueText : "",
+                DayDue = selected?.IsSpacer == false ? selected.DayDue : "",
+                LastUser = AppConfig.CurrentUserName
+            };
 
-            SaveAllToDiskAndRefreshUI();
+            // if selection is a spacer, add before it
+            if (selected?.IsSpacer == true) index = Math.Max(0, index);
+
+            _rows.Insert(index, newItem);
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
         }
 
         private void DeleteRow_Click(object sender, RoutedEventArgs e)
         {
             var selected = DesignGrid.SelectedItem as DesignItem;
-            if (selected == null) return;
+            if (selected == null || selected.IsSpacer) return;
 
-            if (!selected.IsSpacer)
-                _rows.Remove(selected);
+            _rows.Remove(selected);
 
-            SaveAllToDiskAndRefreshUI();
+            SaveAllToDisk();
+            LoadAllFromDisk();
         }
-
-        private void Save_Click(object sender, RoutedEventArgs e) => SaveAllToDiskAndRefreshUI();
 
         private void ChangePassword_Click(object sender, RoutedEventArgs e)
         {
@@ -472,13 +331,19 @@ namespace DesignSheet
             }
         }
 
+        // ----------------------------
+        // Search
+        // ----------------------------
+
         private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
         {
             var view = CollectionViewSource.GetDefaultView(DesignGrid.ItemsSource);
-            if (sender is not TextBox tb || view == null) return;
+            if (view == null) return;
 
-            string term = tb.Text.Trim();
-            if (string.IsNullOrEmpty(term))
+            var tb = sender as TextBox;
+            string term = tb?.Text?.Trim() ?? "";
+
+            if (string.IsNullOrWhiteSpace(term))
             {
                 view.Filter = null;
                 return;
@@ -489,6 +354,7 @@ namespace DesignSheet
             view.Filter = o =>
             {
                 if (o is not DesignItem d) return false;
+                if (d.IsSpacer) return true;
 
                 bool Match(string? s) => (s ?? "").ToLowerInvariant().Contains(term);
 
@@ -510,13 +376,210 @@ namespace DesignSheet
             };
         }
 
-        private void DesignGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e) { }
-        private void DesignGrid_MouseMove(object sender, MouseEventArgs e) { }
-        private void DesignGrid_Drop(object sender, DragEventArgs e) { }
+        // ----------------------------
+        // DataGrid events
+        // ----------------------------
 
+        private void DesignGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            // explicitly allow editing (no "no edit feature")
+            e.Row.IsEnabled = true;
+            e.Row.IsHitTestVisible = true;
+        }
+
+        private void DesignGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.Row.Item is not DesignItem item) return;
+            if (item.IsSpacer) return;
+
+            item.LastUser = AppConfig.CurrentUserName;
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
+
+        private void DesignGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            // keep your custom ordering instead of letting WPF reorder
+            e.Handled = true;
+            EnsureOrderingRulesAndGrouping();
+        }
+
+        // Right click should select row (for context menu)
         private void DesignGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
         {
-            if (sender is DataGridRow row) row.IsSelected = true;
+            if (sender is DataGridRow row)
+                row.IsSelected = true;
+        }
+
+        // ----------------------------
+        // Row context menu actions
+        // ----------------------------
+
+        private DesignItem? GetContextRow(object sender)
+        {
+            if (sender is MenuItem mi)
+            {
+                if (mi.DataContext is DesignItem di) return di;
+
+                // WPF sometimes sets DataContext on ContextMenu rather than item
+                if (mi.Parent is ContextMenu cm && cm.PlacementTarget is FrameworkElement fe && fe.DataContext is DesignItem di2)
+                    return di2;
+            }
+
+            return DesignGrid.SelectedItem as DesignItem;
+        }
+
+        private void AddRowAbove_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _rows.IndexOf(target);
+            if (idx < 0) idx = 0;
+
+            _rows.Insert(idx, new DesignItem
+            {
+                DateDueText = target.DateDueText,
+                DayDue = target.DayDue,
+                Status = target.Status,
+                LastUser = AppConfig.CurrentUserName
+            });
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
+
+        private void AddRowBelow_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _rows.IndexOf(target);
+            if (idx < 0) idx = _rows.Count - 1;
+
+            _rows.Insert(idx + 1, new DesignItem
+            {
+                DateDueText = target.DateDueText,
+                DayDue = target.DayDue,
+                Status = target.Status,
+                LastUser = AppConfig.CurrentUserName
+            });
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
+
+        private void DuplicateRowBelow_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _rows.IndexOf(target);
+            if (idx < 0) idx = _rows.Count - 1;
+
+            var clone = target.Clone();
+            clone.LastUser = AppConfig.CurrentUserName;
+
+            _rows.Insert(idx + 1, clone);
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
+
+        // ----------------------------
+        // Drag handle (prevents compile error)
+        // ----------------------------
+
+        private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not DesignItem item) return;
+            if (item.IsSpacer) return;
+
+            _dragItem = item;
+            DesignGrid.SelectedItem = item;
+
+            DragDrop.DoDragDrop(DesignGrid, new DataObject(DragFormat, item), DragDropEffects.Move);
+            e.Handled = true;
+        }
+
+        private void DesignGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            // no-op: we drag only from the handle
+        }
+
+        private void DesignGrid_MouseMove(object sender, MouseEventArgs e)
+        {
+            // no-op: drag starts from the handle
+        }
+
+        private void DesignGrid_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DragFormat)) return;
+            if (e.Data.GetData(DragFormat) is not DesignItem dragged) return;
+            if (_dragItem == null) return;
+
+            // Determine drop target row
+            DependencyObject? dep = e.OriginalSource as DependencyObject;
+            var row = FindVisualParent<DataGridRow>(dep);
+            if (row?.Item is not DesignItem target) return;
+            if (target.IsSpacer) return;
+            if (ReferenceEquals(dragged, target)) return;
+
+            // Reorder only real rows
+            var real = _rows.Where(r => !r.IsSpacer).ToList();
+            int oldIndex = real.IndexOf(dragged);
+            int newIndex = real.IndexOf(target);
+            if (oldIndex < 0 || newIndex < 0) return;
+
+            real.RemoveAt(oldIndex);
+            if (newIndex > oldIndex) newIndex--;
+            real.Insert(newIndex, dragged);
+
+            _rows.Clear();
+            foreach (var r in real) _rows.Add(r);
+
+            // Reapply your ordering/grouping rules after manual move
+            EnsureOrderingRulesAndGrouping();
+
+            SaveAllToDisk();
+            LoadAllFromDisk();
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T t) return t;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
+        }
+
+        // ----------------------------
+        // Optional: View size (if your XAML still uses it)
+        // ----------------------------
+
+        private void ViewSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!IsInitialized) return;
+
+            string label = "";
+            if (e.AddedItems.Count > 0)
+            {
+                if (e.AddedItems[0] is ComboBoxItem cbi) label = cbi.Content?.ToString() ?? "";
+                else label = e.AddedItems[0]?.ToString() ?? "";
+            }
+
+            double size = label switch
+            {
+                "Medium" => 14,
+                "Large" => 16,
+                _ => 12
+            };
+
+            DesignGrid.FontSize = size;
         }
     }
 }
