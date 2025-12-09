@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:local="clr-namespace:DesignSheet"
+        xmlns:conv="clr-namespace:DesignSheet"
         mc:Ignorable="d"
         Title="DesignSheet"
         Height="800"
@@ -16,18 +16,16 @@
     <Window.Resources>
 
         <!-- Converters -->
-        <local:StatusToBrushConverter x:Key="StatusToBrushConverter" />
-        <local:DueDateToBrushConverter x:Key="DueDateToBrushConverter" />
-        <local:PriorityToBrushConverter x:Key="PriorityToBrushConverter" />
-        <local:RetailOeToBrushConverter x:Key="RetailOeToBrushConverter" />
-        <local:ShaftTypeToCustomerBrushConverter x:Key="ShaftTypeToCustomerBrushConverter" />
+        <conv:StatusToBrushConverter x:Key="StatusToBrushConverter" />
+        <conv:DueDateToBrushConverter x:Key="DueDateToBrushConverter" />
+        <conv:PriorityToBrushConverter x:Key="PriorityToBrushConverter" />
+        <conv:RetailOeToBrushConverter x:Key="RetailOeToBrushConverter" />
+        <conv:ShaftTypeToCustomerBrushConverter x:Key="ShaftTypeToCustomerBrushConverter" />
 
-        <!-- Global text -->
         <Style TargetType="TextBlock">
             <Setter Property="Foreground" Value="Black"/>
         </Style>
 
-        <!-- Buttons -->
         <Style TargetType="Button">
             <Setter Property="Margin" Value="6,0,0,0"/>
             <Setter Property="Padding" Value="10,6"/>
@@ -46,7 +44,7 @@
             <Setter Property="BorderThickness" Value="1"/>
         </Style>
 
-        <!-- Dropdowns: white background -->
+        <!-- ComboBox styling (white background) -->
         <Style TargetType="ComboBox">
             <Setter Property="Foreground" Value="Black"/>
             <Setter Property="Background" Value="White"/>
@@ -61,7 +59,6 @@
             <Setter Property="Background" Value="White"/>
         </Style>
 
-        <!-- Column headers -->
         <Style TargetType="{x:Type DataGridColumnHeader}">
             <Setter Property="Background" Value="#f3f4f6"/>
             <Setter Property="Foreground" Value="Black"/>
@@ -77,7 +74,7 @@
             <Setter Property="TextWrapping" Value="Wrap"/>
         </Style>
 
-        <!-- FULL cell borders (all sides) -->
+        <!-- Full borders all around -->
         <Style x:Key="BaseCellStyle" TargetType="{x:Type DataGridCell}">
             <Setter Property="Foreground" Value="Black"/>
             <Setter Property="Background" Value="White"/>
@@ -142,6 +139,13 @@
                     <Button Content="Delete Row" Click="DeleteRow_Click"/>
                     <Button Content="Save" Click="Save_Click"/>
                     <Button Content="Change Password" Click="ChangePassword_Click"/>
+
+                    <TextBlock Text="View:" VerticalAlignment="Center" Margin="18,0,0,0"/>
+                    <ComboBox x:Name="ViewSizeComboBox" Width="120" SelectionChanged="ViewSizeComboBox_SelectionChanged">
+                        <ComboBoxItem Content="Standard" IsSelected="True"/>
+                        <ComboBoxItem Content="Medium"/>
+                        <ComboBoxItem Content="Large"/>
+                    </ComboBox>
                 </StackPanel>
 
                 <StackPanel Orientation="Horizontal" DockPanel.Dock="Right">
@@ -172,11 +176,31 @@
                               CellStyle="{StaticResource BaseCellStyle}"
                               LoadingRow="DesignGrid_LoadingRow"
                               CellEditEnding="DesignGrid_CellEditEnding"
+                              CurrentCellChanged="DesignGrid_CurrentCellChanged"
                               Sorting="DesignGrid_Sorting"
                               AllowDrop="True"
-                              Drop="DesignGrid_Drop">
+                              Drop="DesignGrid_Drop"
+                              PreviewMouseRightButtonDown="DesignGrid_PreviewMouseRightButtonDown">
+
+                        <!-- Context menu belongs on ROWS (fixes MC6007) -->
+                        <DataGrid.RowStyle>
+                            <Style TargetType="DataGridRow">
+                                <EventSetter Event="PreviewMouseRightButtonDown"
+                                             Handler="DesignGridRow_PreviewMouseRightButtonDown"/>
+                                <Setter Property="ContextMenu">
+                                    <Setter.Value>
+                                        <ContextMenu>
+                                            <MenuItem Header="Add Row Above" Click="AddRowAbove_Click"/>
+                                            <MenuItem Header="Add Row Below" Click="AddRowBelow_Click"/>
+                                            <MenuItem Header="Duplicate Row Below" Click="DuplicateRowBelow_Click"/>
+                                        </ContextMenu>
+                                    </Setter.Value>
+                                </Setter>
+                            </Style>
+                        </DataGrid.RowStyle>
 
                         <DataGrid.Columns>
+
                             <!-- Drag handle -->
                             <DataGridTemplateColumn Header="⇅" Width="36" IsReadOnly="True">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -192,7 +216,7 @@
                                 </DataGridTemplateColumn.CellTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- Retail: "", Y, N (with conditional colour) -->
+                            <!-- Retail: "", Y, N -->
                             <DataGridTemplateColumn Header="Retail" Width="80">
                                 <DataGridTemplateColumn.CellStyle>
                                     <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
@@ -215,7 +239,7 @@
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- OE: "", Y, N, A/L (with conditional colour) -->
+                            <!-- OE: "", Y, N, A/L -->
                             <DataGridTemplateColumn Header="OE" Width="70">
                                 <DataGridTemplateColumn.CellStyle>
                                     <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
@@ -239,7 +263,6 @@
                                 </DataGridTemplateColumn.CellEditingTemplate>
                             </DataGridTemplateColumn>
 
-                            <!-- Customer (conditional based on ShaftType) -->
                             <DataGridTextColumn Header="Customer" Binding="{Binding Customer}" Width="170"
                                                 ElementStyle="{StaticResource CellTextBlockStyle}">
                                 <DataGridTextColumn.CellStyle>
@@ -285,7 +308,7 @@
                                 </DataGridTextColumn.CellStyle>
                             </DataGridTextColumn>
 
-                            <!-- Status dropdown + conditional -->
+                            <!-- Status dropdown + conditional (values normalized) -->
                             <DataGridTemplateColumn Header="Status" Width="150">
                                 <DataGridTemplateColumn.CellStyle>
                                     <Style TargetType="DataGridCell" BasedOn="{StaticResource BaseCellStyle}">
@@ -305,9 +328,9 @@
                                             <ComboBoxItem Content="assembly"/>
                                             <ComboBoxItem Content="balancing"/>
                                             <ComboBoxItem Content="booked in"/>
-                                            <ComboBoxItem Content="Paint Shop"/>
-                                            <ComboBoxItem Content="Picked Up"/>
-                                            <ComboBoxItem Content="Cancelled"/>
+                                            <ComboBoxItem Content="paint shop"/>
+                                            <ComboBoxItem Content="picked up"/>
+                                            <ComboBoxItem Content="cancelled"/>
                                         </ComboBox>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
@@ -362,9 +385,8 @@
                                     <DataTemplate>
                                         <ComboBox SelectedValue="{Binding Priority, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectedValuePath="Content">
                                             <ComboBoxItem Content=""/>
-                                            <ComboBoxItem Content="high"/>
-                                            <ComboBoxItem Content="medium"/>
-                                            <ComboBoxItem Content="low"/>
+                                            <ComboBoxItem Content="Y"/>
+                                            <ComboBoxItem Content="N"/>
                                         </ComboBox>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellEditingTemplate>
@@ -373,7 +395,6 @@
                             <DataGridTextColumn Header="Last User" Binding="{Binding LastUser}" Width="120"
                                                 ElementStyle="{StaticResource CellTextBlockStyle}"/>
                         </DataGrid.Columns>
-
                     </DataGrid>
                 </Grid>
             </TabItem>
@@ -396,10 +417,9 @@
                               CellStyle="{StaticResource BaseCellStyle}"
                               LoadingRow="DesignGrid_LoadingRow"
                               CellEditEnding="DesignGrid_CellEditEnding"
-                              Sorting="DesignGrid_Sorting"
-                              AllowDrop="False">
+                              CurrentCellChanged="DesignGrid_CurrentCellChanged"
+                              Sorting="DesignGrid_Sorting">
 
-                        <!-- Same columns as Active (you can tweak if you want fewer) -->
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Retail" Binding="{Binding Retail}" Width="80" ElementStyle="{StaticResource CellTextBlockStyle}"/>
                             <DataGridTextColumn Header="OE" Binding="{Binding OE}" Width="70" ElementStyle="{StaticResource CellTextBlockStyle}"/>
@@ -417,10 +437,10 @@
                             <DataGridTextColumn Header="Priority" Binding="{Binding Priority}" Width="110" ElementStyle="{StaticResource CellTextBlockStyle}"/>
                             <DataGridTextColumn Header="Last User" Binding="{Binding LastUser}" Width="120" ElementStyle="{StaticResource CellTextBlockStyle}"/>
                         </DataGrid.Columns>
+
                     </DataGrid>
                 </Grid>
             </TabItem>
-
         </TabControl>
     </Grid>
 </Window>

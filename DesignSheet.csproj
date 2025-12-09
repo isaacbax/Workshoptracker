@@ -7,4 +7,12 @@
 		<UseWindowsForms>true</UseWindowsForms>
 	</PropertyGroup>
 
+	<ItemGroup>
+		<Compile Include="Converters\StatusToBrushConverter.cs" />
+		<Compile Include="Converters\DueDateToBrushConverter.cs" />
+		<Compile Include="Converters\PriorityToBrushConverter.cs" />
+		<Compile Include="Converters\RetailOeToBrushConverter.cs" />
+		<Compile Include="Converters\ShaftTypeToCustomerBrushConverter.cs" />
+	</ItemGroup>
+
 </Project>

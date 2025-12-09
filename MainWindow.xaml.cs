@@ -9,11 +9,13 @@ using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
+using System.Windows.Threading;
 
 namespace DesignSheet
 {
     public partial class MainWindow : Window
     {
+        // Two collections (two tabs)
         private readonly ObservableCollection<DesignItem> _activeRows = new();
         private readonly ObservableCollection<DesignItem> _finishedRows = new();
 
@@ -21,16 +23,24 @@ namespace DesignSheet
         private readonly string _activeFile;
         private readonly string _finishedFile;
 
+        // Watchers (refresh when other users update files)
         private FileSystemWatcher? _activeWatcher;
         private FileSystemWatcher? _finishedWatcher;
         private bool _suppressWatchReload;
 
+        // Debounce refresh (avoids multiple reloads per write)
+        private readonly DispatcherTimer _reloadDebounceTimer;
+
+        // Auto-save debounce (prevents double-save loops)
+        private readonly DispatcherTimer _autoSaveTimer;
+        private bool _pendingAutoSave;
+
+        // Drag + drop
         private const string DragFormat = "DesignSheet.DesignItem";
         private DesignItem? _dragItem;
 
         public MainWindow()
         {
-            // Prefer AppConfig values; fall back safely
             _branch = string.IsNullOrWhiteSpace(AppConfig.CurrentBranch) ? "headoffice" : AppConfig.CurrentBranch;
 
             string baseFolder = string.IsNullOrWhiteSpace(AppConfig.BaseFolder)
@@ -44,14 +54,35 @@ namespace DesignSheet
             _activeFile = Path.Combine(baseFolder, $"{_branch}.csv");
             _finishedFile = Path.Combine(baseFolder, $"{_branch}finished.csv");
 
-            DesignGrid.ItemsSource = _rows;
+            // Bind both grids
+            DesignGrid.ItemsSource = _activeRows;
+            FinishedGrid.ItemsSource = _finishedRows;
+
+            _reloadDebounceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(250) };
+            _reloadDebounceTimer.Tick += (_, __) =>
+            {
+                _reloadDebounceTimer.Stop();
+                if (_suppressWatchReload) return;
+                SafeReloadFromDisk();
+            };
+
+            _autoSaveTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(200) };
+            _autoSaveTimer.Tick += (_, __) =>
+            {
+                _autoSaveTimer.Stop();
+                if (!_pendingAutoSave) return;
+                _pendingAutoSave = false;
+
+                SaveAllToDisk();
+                SafeReloadFromDisk(); // refresh view after autosave
+            };
 
             LoadAllFromDisk();
             SetupWatchers();
         }
 
         // ----------------------------
-        // Status helpers
+        // Helpers
         // ----------------------------
 
         private static bool IsFinishedStatus(string? status) =>
@@ -68,21 +99,37 @@ namespace DesignSheet
             return DateTime.MaxValue;
         }
 
+        private void SafeReloadFromDisk()
+        {
+            try
+            {
+                LoadAllFromDisk();
+            }
+            catch
+            {
+                // ignore transient file locks
+            }
+        }
+
         // ----------------------------
-        // IO
+        // Load/Save
         // ----------------------------
 
         private void LoadAllFromDisk()
         {
-            _rows.Clear();
+            _activeRows.Clear();
+            _finishedRows.Clear();
 
             var active = File.Exists(_activeFile) ? ReadDesignsFromFile(_activeFile) : Enumerable.Empty<DesignItem>();
             var finished = File.Exists(_finishedFile) ? ReadDesignsFromFile(_finishedFile) : Enumerable.Empty<DesignItem>();
 
-            foreach (var d in active) _rows.Add(d);
-            foreach (var d in finished) _rows.Add(d);
+            foreach (var d in active) _activeRows.Add(d);
+            foreach (var d in finished) _finishedRows.Add(d);
 
-            EnsureOrderingRulesAndGrouping();
+            EnsureOrderingRules(_activeRows);
+            EnsureFinishedOrder(_finishedRows);
+
+            ApplySearchFilter(SearchTextBox?.Text);
         }
 
         private void SaveAllToDisk()
@@ -90,18 +137,31 @@ namespace DesignSheet
             _suppressWatchReload = true;
             try
             {
-                // Only write real rows (no spacer rows)
-                var real = _rows.Where(r => !r.IsSpacer).Select(r => r.Clone()).ToList();
+                var activeReal = _activeRows.Where(r => !r.IsSpacer).Select(r => r.Clone()).ToList();
+                var finishedReal = _finishedRows.Where(r => !r.IsSpacer).Select(r => r.Clone()).ToList();
 
-                // Split by finished status
-                var active = real.Where(r => !IsFinishedStatus(r.Status)).ToList();
-                var finished = real.Where(r => IsFinishedStatus(r.Status)).ToList();
+                // Move finished from active -> finished
+                var moveToFinished = activeReal.Where(r => IsFinishedStatus(r.Status)).ToList();
+                if (moveToFinished.Count > 0)
+                {
+                    activeReal = activeReal.Where(r => !IsFinishedStatus(r.Status)).ToList();
+                    finishedReal.AddRange(moveToFinished);
+                }
 
-                WriteDesignsToFile(_activeFile, active);
-                WriteDesignsToFile(_finishedFile, finished);
+                // Move non-finished from finished -> active
+                var moveBackToActive = finishedReal.Where(r => !IsFinishedStatus(r.Status)).ToList();
+                if (moveBackToActive.Count > 0)
+                {
+                    finishedReal = finishedReal.Where(r => IsFinishedStatus(r.Status)).ToList();
+                    activeReal.AddRange(moveBackToActive);
+                }
+
+                WriteDesignsToFile(_activeFile, activeReal);
+                WriteDesignsToFile(_finishedFile, finishedReal);
             }
             finally
             {
+                // Let watchers reload again shortly (covers network shares)
                 _suppressWatchReload = false;
             }
         }
@@ -114,7 +174,7 @@ namespace DesignSheet
 
                 var cols = line.Split(',');
 
-                // Some old CSVs may have an extra leading column; handle offset
+                // tolerate an extra leading column in older CSVs
                 int offset = cols.Length >= 16 ? 1 : 0;
 
                 yield return new DesignItem
@@ -164,6 +224,10 @@ namespace DesignSheet
             File.WriteAllLines(path, lines);
         }
 
+        // ----------------------------
+        // Watchers (refresh for other users)
+        // ----------------------------
+
         private void SetupWatchers()
         {
             _activeWatcher?.Dispose();
@@ -174,68 +238,74 @@ namespace DesignSheet
             _activeWatcher = new FileSystemWatcher(folder)
             {
                 Filter = Path.GetFileName(_activeFile),
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
             };
             _activeWatcher.Changed += FileWatcher_Changed;
+            _activeWatcher.Created += FileWatcher_Changed;
+            _activeWatcher.Renamed += FileWatcher_Changed;
             _activeWatcher.EnableRaisingEvents = true;
 
             _finishedWatcher = new FileSystemWatcher(folder)
             {
                 Filter = Path.GetFileName(_finishedFile),
-                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.FileName
             };
             _finishedWatcher.Changed += FileWatcher_Changed;
+            _finishedWatcher.Created += FileWatcher_Changed;
+            _finishedWatcher.Renamed += FileWatcher_Changed;
             _finishedWatcher.EnableRaisingEvents = true;
         }
 
-        private void FileWatcher_Changed(object sender, FileSystemEventArgs e)
+        private void FileWatcher_Changed(object? sender, FileSystemEventArgs e)
         {
             if (_suppressWatchReload) return;
 
             Dispatcher.Invoke(() =>
             {
-                try { LoadAllFromDisk(); }
-                catch { /* ignore transient read issues */ }
+                // debounce reload
+                _reloadDebounceTimer.Stop();
+                _reloadDebounceTimer.Start();
             });
         }
 
         // ----------------------------
-        // Ordering + grouping
+        // Ordering rules
         // ----------------------------
 
-        private void EnsureOrderingRulesAndGrouping()
+        private static void EnsureOrderingRules(ObservableCollection<DesignItem> list)
         {
-            // Remove spacers then reorder then regroup with ONE spacer per date
-            var real = _rows.Where(r => !r.IsSpacer).ToList();
+            var real = list.Where(r => !r.IsSpacer).ToList();
 
             var top = real.Where(r => IsPaintShop(r.Status)).ToList();
-            var bottom = real.Where(r => IsFinishedStatus(r.Status)).ToList();
-            var middle = real.Except(top).Except(bottom)
+            var middle = real.Where(r => !IsPaintShop(r.Status) && !IsFinishedStatus(r.Status))
                              .OrderBy(r => ParseDate(r.DateDueText))
                              .ToList();
 
             var ordered = new List<DesignItem>();
             ordered.AddRange(top);
             ordered.AddRange(middle);
-            ordered.AddRange(bottom);
 
-            _rows.Clear();
+            list.Clear();
 
-            // group by DateDueText and add ONE spacer row after each group
+            // One spacer after each DateDue group
             var groups = ordered.GroupBy(r => r.DateDueText ?? string.Empty)
                                 .OrderBy(g => ParseDate(g.Key));
 
             foreach (var g in groups)
             {
-                foreach (var row in g) _rows.Add(row);
-
-                // ONE spacer only
-                _rows.Add(new DesignItem
-                {
-                    IsSpacer = true,
-                    DateDueText = g.Key
-                });
+                foreach (var row in g) list.Add(row);
+                list.Add(new DesignItem { IsSpacer = true, DateDueText = g.Key });
             }
+        }
+
+        private static void EnsureFinishedOrder(ObservableCollection<DesignItem> list)
+        {
+            var real = list.Where(r => !r.IsSpacer)
+                           .OrderByDescending(r => ParseDate(r.DateDueText))
+                           .ToList();
+
+            list.Clear();
+            foreach (var r in real) list.Add(r);
         }
 
         // ----------------------------
@@ -268,24 +338,22 @@ namespace DesignSheet
         }
 
         // ----------------------------
-        // Toolbar handlers
+        // Toolbar
         // ----------------------------
 
-        private void Reload_Click(object sender, RoutedEventArgs e) => LoadAllFromDisk();
+        private void Reload_Click(object sender, RoutedEventArgs e) => SafeReloadFromDisk();
 
         private void Save_Click(object sender, RoutedEventArgs e)
         {
             SaveAllToDisk();
-            LoadAllFromDisk();
+            SafeReloadFromDisk();
         }
 
         private void AddRow_Click(object sender, RoutedEventArgs e)
         {
             var selected = DesignGrid.SelectedItem as DesignItem;
-
-            // insert based on selection (ignore spacers)
-            int index = selected == null ? _rows.Count : _rows.IndexOf(selected);
-            if (index < 0) index = _rows.Count;
+            int index = selected == null ? _activeRows.Count : _activeRows.IndexOf(selected);
+            if (index < 0) index = _activeRows.Count;
 
             var newItem = new DesignItem
             {
@@ -294,24 +362,37 @@ namespace DesignSheet
                 LastUser = AppConfig.CurrentUserName
             };
 
-            // if selection is a spacer, add before it
             if (selected?.IsSpacer == true) index = Math.Max(0, index);
 
-            _rows.Insert(index, newItem);
+            _activeRows.Insert(index, newItem);
 
             SaveAllToDisk();
-            LoadAllFromDisk();
+            SafeReloadFromDisk();
         }
 
         private void DeleteRow_Click(object sender, RoutedEventArgs e)
         {
-            var selected = DesignGrid.SelectedItem as DesignItem;
-            if (selected == null || selected.IsSpacer) return;
-
-            _rows.Remove(selected);
+            if (DesignGrid.IsKeyboardFocusWithin)
+            {
+                var selected = DesignGrid.SelectedItem as DesignItem;
+                if (selected == null || selected.IsSpacer) return;
+                _activeRows.Remove(selected);
+            }
+            else if (FinishedGrid.IsKeyboardFocusWithin)
+            {
+                var selected = FinishedGrid.SelectedItem as DesignItem;
+                if (selected == null || selected.IsSpacer) return;
+                _finishedRows.Remove(selected);
+            }
+            else
+            {
+                var selected = DesignGrid.SelectedItem as DesignItem;
+                if (selected == null || selected.IsSpacer) return;
+                _activeRows.Remove(selected);
+            }
 
             SaveAllToDisk();
-            LoadAllFromDisk();
+            SafeReloadFromDisk();
         }
 
         private void ChangePassword_Click(object sender, RoutedEventArgs e)
@@ -331,236 +412,7 @@ namespace DesignSheet
             }
         }
 
-        // ----------------------------
-        // Search
-        // ----------------------------
-
-        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-            var view = CollectionViewSource.GetDefaultView(DesignGrid.ItemsSource);
-            if (view == null) return;
-
-            var tb = sender as TextBox;
-            string term = tb?.Text?.Trim() ?? "";
-
-            if (string.IsNullOrWhiteSpace(term))
-            {
-                view.Filter = null;
-                return;
-            }
-
-            term = term.ToLowerInvariant();
-
-            view.Filter = o =>
-            {
-                if (o is not DesignItem d) return false;
-                if (d.IsSpacer) return true;
-
-                bool Match(string? s) => (s ?? "").ToLowerInvariant().Contains(term);
-
-                return Match(d.Retail) ||
-                       Match(d.OE) ||
-                       Match(d.Customer) ||
-                       Match(d.SerialNumber) ||
-                       Match(d.DayDue) ||
-                       Match(d.DateDueText) ||
-                       Match(d.Status) ||
-                       Match(d.Qty) ||
-                       Match(d.WhatIsIt) ||
-                       Match(d.PO) ||
-                       Match(d.WhatAreWeDoing) ||
-                       Match(d.Parts) ||
-                       Match(d.ShaftType) ||
-                       Match(d.Priority) ||
-                       Match(d.LastUser);
-            };
-        }
-
-        // ----------------------------
-        // DataGrid events
-        // ----------------------------
-
-        private void DesignGrid_LoadingRow(object sender, DataGridRowEventArgs e)
-        {
-            // explicitly allow editing (no "no edit feature")
-            e.Row.IsEnabled = true;
-            e.Row.IsHitTestVisible = true;
-        }
-
-        private void DesignGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
-        {
-            if (e.Row.Item is not DesignItem item) return;
-            if (item.IsSpacer) return;
-
-            item.LastUser = AppConfig.CurrentUserName;
-
-            SaveAllToDisk();
-            LoadAllFromDisk();
-        }
-
-        private void DesignGrid_Sorting(object sender, DataGridSortingEventArgs e)
-        {
-            // keep your custom ordering instead of letting WPF reorder
-            e.Handled = true;
-            EnsureOrderingRulesAndGrouping();
-        }
-
-        // Right click should select row (for context menu)
-        private void DesignGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is DataGridRow row)
-                row.IsSelected = true;
-        }
-
-        // ----------------------------
-        // Row context menu actions
-        // ----------------------------
-
-        private DesignItem? GetContextRow(object sender)
-        {
-            if (sender is MenuItem mi)
-            {
-                if (mi.DataContext is DesignItem di) return di;
-
-                // WPF sometimes sets DataContext on ContextMenu rather than item
-                if (mi.Parent is ContextMenu cm && cm.PlacementTarget is FrameworkElement fe && fe.DataContext is DesignItem di2)
-                    return di2;
-            }
-
-            return DesignGrid.SelectedItem as DesignItem;
-        }
-
-        private void AddRowAbove_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetContextRow(sender);
-            if (target == null || target.IsSpacer) return;
-
-            int idx = _rows.IndexOf(target);
-            if (idx < 0) idx = 0;
-
-            _rows.Insert(idx, new DesignItem
-            {
-                DateDueText = target.DateDueText,
-                DayDue = target.DayDue,
-                Status = target.Status,
-                LastUser = AppConfig.CurrentUserName
-            });
-
-            SaveAllToDisk();
-            LoadAllFromDisk();
-        }
-
-        private void AddRowBelow_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetContextRow(sender);
-            if (target == null || target.IsSpacer) return;
-
-            int idx = _rows.IndexOf(target);
-            if (idx < 0) idx = _rows.Count - 1;
-
-            _rows.Insert(idx + 1, new DesignItem
-            {
-                DateDueText = target.DateDueText,
-                DayDue = target.DayDue,
-                Status = target.Status,
-                LastUser = AppConfig.CurrentUserName
-            });
-
-            SaveAllToDisk();
-            LoadAllFromDisk();
-        }
-
-        private void DuplicateRowBelow_Click(object sender, RoutedEventArgs e)
-        {
-            var target = GetContextRow(sender);
-            if (target == null || target.IsSpacer) return;
-
-            int idx = _rows.IndexOf(target);
-            if (idx < 0) idx = _rows.Count - 1;
-
-            var clone = target.Clone();
-            clone.LastUser = AppConfig.CurrentUserName;
-
-            _rows.Insert(idx + 1, clone);
-
-            SaveAllToDisk();
-            LoadAllFromDisk();
-        }
-
-        // ----------------------------
-        // Drag handle (prevents compile error)
-        // ----------------------------
-
-        private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            if (sender is not FrameworkElement fe) return;
-            if (fe.DataContext is not DesignItem item) return;
-            if (item.IsSpacer) return;
-
-            _dragItem = item;
-            DesignGrid.SelectedItem = item;
-
-            DragDrop.DoDragDrop(DesignGrid, new DataObject(DragFormat, item), DragDropEffects.Move);
-            e.Handled = true;
-        }
-
-        private void DesignGrid_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-        {
-            // no-op: we drag only from the handle
-        }
-
-        private void DesignGrid_MouseMove(object sender, MouseEventArgs e)
-        {
-            // no-op: drag starts from the handle
-        }
-
-        private void DesignGrid_Drop(object sender, DragEventArgs e)
-        {
-            if (!e.Data.GetDataPresent(DragFormat)) return;
-            if (e.Data.GetData(DragFormat) is not DesignItem dragged) return;
-            if (_dragItem == null) return;
-
-            // Determine drop target row
-            DependencyObject? dep = e.OriginalSource as DependencyObject;
-            var row = FindVisualParent<DataGridRow>(dep);
-            if (row?.Item is not DesignItem target) return;
-            if (target.IsSpacer) return;
-            if (ReferenceEquals(dragged, target)) return;
-
-            // Reorder only real rows
-            var real = _rows.Where(r => !r.IsSpacer).ToList();
-            int oldIndex = real.IndexOf(dragged);
-            int newIndex = real.IndexOf(target);
-            if (oldIndex < 0 || newIndex < 0) return;
-
-            real.RemoveAt(oldIndex);
-            if (newIndex > oldIndex) newIndex--;
-            real.Insert(newIndex, dragged);
-
-            _rows.Clear();
-            foreach (var r in real) _rows.Add(r);
-
-            // Reapply your ordering/grouping rules after manual move
-            EnsureOrderingRulesAndGrouping();
-
-            SaveAllToDisk();
-            LoadAllFromDisk();
-        }
-
-        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
-        {
-            while (child != null)
-            {
-                if (child is T t) return t;
-                child = VisualTreeHelper.GetParent(child);
-            }
-            return null;
-        }
-
-        // ----------------------------
-        // Optional: View size (if your XAML still uses it)
-        // ----------------------------
-
+        // Font size changer
         private void ViewSizeComboBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (!IsInitialized) return;
@@ -580,6 +432,242 @@ namespace DesignSheet
             };
 
             DesignGrid.FontSize = size;
+            FinishedGrid.FontSize = size;
+        }
+
+        // ----------------------------
+        // Search (both tabs)
+        // ----------------------------
+
+        private void SearchTextBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplySearchFilter((sender as TextBox)?.Text);
+        }
+
+        private void ApplySearchFilter(string? raw)
+        {
+            string term = (raw ?? "").Trim().ToLowerInvariant();
+
+            Predicate<object> filter = o =>
+            {
+                if (o is not DesignItem d) return false;
+                if (d.IsSpacer) return true;
+                if (string.IsNullOrWhiteSpace(term)) return true;
+
+                bool Match(string? s) => (s ?? "").ToLowerInvariant().Contains(term);
+
+                return Match(d.Retail) ||
+                       Match(d.OE) ||
+                       Match(d.Customer) ||
+                       Match(d.SerialNumber) ||
+                       Match(d.DayDue) ||
+                       Match(d.DateDueText) ||
+                       Match(d.Status) ||
+                       Match(d.Qty) ||
+                       Match(d.WhatIsIt) ||
+                       Match(d.PO) ||
+                       Match(d.WhatAreWeDoing) ||
+                       Match(d.Parts) ||
+                       Match(d.ShaftType) ||
+                       Match(d.Priority) ||
+                       Match(d.LastUser);
+            };
+
+            var view1 = CollectionViewSource.GetDefaultView(DesignGrid.ItemsSource);
+            if (view1 != null) view1.Filter = o => filter(o);
+
+            var view2 = CollectionViewSource.GetDefaultView(FinishedGrid.ItemsSource);
+            if (view2 != null) view2.Filter = o => filter(o);
+        }
+
+        // ----------------------------
+        // Auto-save hooks
+        // ----------------------------
+
+        // Fires when edit is ending (e.g., leaving a cell)
+        private void DesignGrid_CellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
+        {
+            if (e.Row.Item is not DesignItem item) return;
+            if (item.IsSpacer) return;
+
+            item.LastUser = AppConfig.CurrentUserName;
+
+            QueueAutoSave();
+        }
+
+        // Fires when the current cell changes (covers dropdown selection changes reliably)
+        private void DesignGrid_CurrentCellChanged(object sender, EventArgs e)
+        {
+            // This catches combo box edits + some text edits when focus moves.
+            QueueAutoSave();
+        }
+
+        private void QueueAutoSave()
+        {
+            if (_suppressWatchReload) return;
+
+            _pendingAutoSave = true;
+            _autoSaveTimer.Stop();
+            _autoSaveTimer.Start();
+        }
+
+        private void DesignGrid_LoadingRow(object sender, DataGridRowEventArgs e)
+        {
+            e.Row.IsEnabled = true;
+            e.Row.IsHitTestVisible = true;
+        }
+
+        private void DesignGrid_Sorting(object sender, DataGridSortingEventArgs e)
+        {
+            e.Handled = true;
+            EnsureOrderingRules(_activeRows);
+            EnsureFinishedOrder(_finishedRows);
+        }
+
+        // ----------------------------
+        // Right click support
+        // ----------------------------
+
+        private void DesignGrid_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            var dep = e.OriginalSource as DependencyObject;
+            var row = FindVisualParent<DataGridRow>(dep);
+            if (row != null)
+            {
+                row.IsSelected = true;
+                DesignGrid.SelectedItem = row.Item;
+            }
+        }
+
+        private void DesignGridRow_PreviewMouseRightButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is DataGridRow row)
+                row.IsSelected = true;
+        }
+
+        private DesignItem? GetContextRow(object sender)
+        {
+            if (sender is MenuItem mi)
+            {
+                if (mi.DataContext is DesignItem di) return di;
+
+                if (mi.Parent is ContextMenu cm &&
+                    cm.PlacementTarget is FrameworkElement fe &&
+                    fe.DataContext is DesignItem di2)
+                    return di2;
+            }
+
+            return DesignGrid.SelectedItem as DesignItem;
+        }
+
+        private void AddRowAbove_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _activeRows.IndexOf(target);
+            if (idx < 0) idx = 0;
+
+            _activeRows.Insert(idx, new DesignItem
+            {
+                DateDueText = target.DateDueText,
+                DayDue = target.DayDue,
+                Status = target.Status,
+                LastUser = AppConfig.CurrentUserName
+            });
+
+            QueueAutoSave();
+        }
+
+        private void AddRowBelow_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _activeRows.IndexOf(target);
+            if (idx < 0) idx = _activeRows.Count - 1;
+
+            _activeRows.Insert(idx + 1, new DesignItem
+            {
+                DateDueText = target.DateDueText,
+                DayDue = target.DayDue,
+                Status = target.Status,
+                LastUser = AppConfig.CurrentUserName
+            });
+
+            QueueAutoSave();
+        }
+
+        private void DuplicateRowBelow_Click(object sender, RoutedEventArgs e)
+        {
+            var target = GetContextRow(sender);
+            if (target == null || target.IsSpacer) return;
+
+            int idx = _activeRows.IndexOf(target);
+            if (idx < 0) idx = _activeRows.Count - 1;
+
+            var clone = target.Clone();
+            clone.LastUser = AppConfig.CurrentUserName;
+
+            _activeRows.Insert(idx + 1, clone);
+
+            QueueAutoSave();
+        }
+
+        // ----------------------------
+        // Drag & drop reorder (Active)
+        // ----------------------------
+
+        private void DragHandle_PreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not DesignItem item) return;
+            if (item.IsSpacer) return;
+
+            _dragItem = item;
+            DesignGrid.SelectedItem = item;
+
+            DragDrop.DoDragDrop(DesignGrid, new DataObject(DragFormat, item), DragDropEffects.Move);
+            e.Handled = true;
+        }
+
+        private void DesignGrid_Drop(object sender, DragEventArgs e)
+        {
+            if (!e.Data.GetDataPresent(DragFormat)) return;
+            if (e.Data.GetData(DragFormat) is not DesignItem dragged) return;
+            if (_dragItem == null) return;
+
+            var dep = e.OriginalSource as DependencyObject;
+            var row = FindVisualParent<DataGridRow>(dep);
+            if (row?.Item is not DesignItem target) return;
+            if (target.IsSpacer) return;
+            if (ReferenceEquals(dragged, target)) return;
+
+            var real = _activeRows.Where(r => !r.IsSpacer).ToList();
+            int oldIndex = real.IndexOf(dragged);
+            int newIndex = real.IndexOf(target);
+            if (oldIndex < 0 || newIndex < 0) return;
+
+            real.RemoveAt(oldIndex);
+            if (newIndex > oldIndex) newIndex--;
+            real.Insert(newIndex, dragged);
+
+            _activeRows.Clear();
+            foreach (var r in real) _activeRows.Add(r);
+
+            EnsureOrderingRules(_activeRows);
+
+            QueueAutoSave();
+        }
+
+        private static T? FindVisualParent<T>(DependencyObject? child) where T : DependencyObject
+        {
+            while (child != null)
+            {
+                if (child is T t) return t;
+                child = VisualTreeHelper.GetParent(child);
+            }
+            return null;
         }
     }
 }
