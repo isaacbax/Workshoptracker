@@ -6,7 +6,7 @@
         ResizeMode="NoResize"
         Height="260"
         Width="420"
-        Background="#0f172a">
+        Background="White">
     <Border BorderBrush="#0f766e" BorderThickness="2" CornerRadius="8" Margin="4">
         <Grid>
             <Grid.RowDefinitions>
@@ -40,7 +40,7 @@
             </Grid>
 
             <!-- content -->
-            <Grid Grid.Row="1" Margin="12" Background="#020617">
+            <Grid Grid.Row="1" Margin="12" Background="White">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto"/>
                     <RowDefinition Height="Auto"/>
@@ -57,7 +57,7 @@
                 <TextBlock Grid.Row="0" Grid.Column="0"
                            Text="Username:"
                            Margin="0,8,8,0"
-                           Foreground="White"/>
+                           Foreground="Black"/>
                 <TextBox Grid.Row="0" Grid.Column="1"
                          x:Name="UsernameTextBox"
                          Margin="0,4,0,0"
@@ -66,7 +66,7 @@
                 <TextBlock Grid.Row="1" Grid.Column="0"
                            Text="Password:"
                            Margin="0,8,8,0"
-                           Foreground="White"/>
+                           Foreground="Black" Height="16" Grid.RowSpan="2" VerticalAlignment="Top"/>
                 <PasswordBox Grid.Row="1" Grid.Column="1"
                              x:Name="PasswordBox"
                              Margin="0,4,0,0"
@@ -75,7 +75,7 @@
                 <TextBlock Grid.Row="2" Grid.Column="0"
                            Text="Branch:"
                            Margin="0,8,8,0"
-                           Foreground="White"/>
+                           Foreground="Black"/>
                 <ComboBox Grid.Row="2" Grid.Column="1"
                           x:Name="BranchComboBox"
                           Margin="0,4,0,0"
@@ -84,11 +84,11 @@
                 <TextBlock Grid.Row="3" Grid.Column="0"
                            Text="Folder:"
                            Margin="0,8,8,0"
-                           Foreground="White"/>
+                           Foreground="Black"/>
                 <StackPanel Grid.Row="3" Grid.Column="1" Orientation="Horizontal" Margin="0,4,0,0">
                     <TextBlock x:Name="BaseFolderTextBlock"
                                VerticalAlignment="Center"
-                               Foreground="White"
+                               Foreground="Black"
                                TextTrimming="CharacterEllipsis"
                                Width="200"/>
                     <Button Content="..."

@@ -9,6 +9,13 @@ namespace DesignSheet
         // True for the non-editable blank rows around each date group
         public bool IsSeparator { get; set; }
 
+        // ✅ Alias used by MainWindow.xaml.cs / XAML
+        public bool IsSpacer
+        {
+            get => IsSeparator;
+            set => IsSeparator = value;
+        }
+
         public string? Retail { get; set; }
         public string? OE { get; set; }
         public string? Customer { get; set; }

@@ -100,7 +100,12 @@ namespace DesignSheet
             AppConfig.CurrentUserName = user.Username;
             AppConfig.CurrentBranch = branch;
 
-            var main = new MainWindow(AppConfig.BaseFolder, user.Username, branch);
+            // Save login context for MainWindow() to use
+            AppConfig.CurrentUserName = user.Username;
+            AppConfig.CurrentBranch = branch;
+
+            // Open main window using parameterless ctor
+            var main = new MainWindow();
             main.Show();
             Close();
         }

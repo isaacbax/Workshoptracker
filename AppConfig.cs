@@ -18,7 +18,9 @@ namespace DesignSheet
         public static string CurrentUserName { get; set; } = string.Empty;
         public static string CurrentBranch { get; set; } = "headoffice";
 
-        /// <summary>Save users back to users.csv</summary>
+        /// <summary>
+        /// Save users back to users.csv
+        /// </summary>
         public static void SaveUsers(IReadOnlyCollection<UserRecord> users)
         {
             try
@@ -40,7 +42,56 @@ namespace DesignSheet
             }
         }
 
-        /// <summary>Change the base folder (called from Login window).</summary>
+        /// <summary>
+        /// Load users from users.csv
+        /// </summary>
+        public static List<UserRecord> LoadUsers()
+        {
+            var users = new List<UserRecord>();
+
+            try
+            {
+                if (!File.Exists(UsersFile))
+                    return users;
+
+                foreach (var line in File.ReadAllLines(UsersFile))
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    var parts = line.Split(',');
+                    if (parts.Length < 3)
+                        continue;
+
+                    users.Add(new UserRecord
+                    {
+                        Username = parts[0].Trim(),
+                        PasswordHash = parts[1].Trim(),
+                        Branch = parts[2].Trim()
+                    });
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error loading users: {ex.Message}",
+                    "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return users;
+        }
+
+        /// <summary>
+        /// Exists because MainWindow calls AppConfig.SaveSettings() on close.
+        /// Implement persistence here later if you want.
+        /// </summary>
+        public static void SaveSettings()
+        {
+            // No-op: add settings persistence here if desired (json/ini/etc).
+        }
+
+        /// <summary>
+        /// Change the base folder (called from Login window).
+        /// </summary>
         public static void ChangeRootFolder(Window owner)
         {
             var dialog = new System.Windows.Forms.FolderBrowserDialog
