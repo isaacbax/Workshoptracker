@@ -1,0 +1,66 @@
+﻿<Window x:Class="DesignSheet.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:views="clr-namespace:DesignSheet.Views"
+        Title="{Binding Title}"
+        Height="800"
+        Width="1400"
+        WindowStartupLocation="CenterScreen">
+
+    <DockPanel>
+        <!-- Top toolbar -->
+        <StackPanel Orientation="Horizontal"
+                    DockPanel.Dock="Top"
+                    Margin="5"
+                    VerticalAlignment="Center">
+
+            <Button Content="Reload"
+                    Width="80"
+                    Margin="0,0,5,0"
+                    Click="Reload_Click"/>
+            <Button Content="Save"
+                    Width="80"
+                    Margin="0,0,10,0"
+                    Click="Save_Click"/>
+            <Button Content="Change Password"
+                    Width="130"
+                    Margin="0,0,10,0"
+                    Click="ChangePassword_Click"/>
+
+            <TextBlock Text="Search:"
+                       VerticalAlignment="Center"
+                       Margin="0,0,5,0"/>
+            <TextBox Width="220"
+                     Margin="0,0,20,0"
+                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"/>
+
+            <TextBlock Text="View:"
+                       VerticalAlignment="Center"
+                       Margin="0,0,5,0"/>
+
+            <Button Content="Regular"
+                    Width="70"
+                    Margin="0,0,3,0"
+                    Click="ViewRegular_Click"/>
+            <Button Content="Medium"
+                    Width="70"
+                    Margin="0,0,3,0"
+                    Click="ViewMedium_Click"/>
+            <Button Content="Large"
+                    Width="70"
+                    Click="ViewLarge_Click"/>
+        </StackPanel>
+
+        <!-- Main content -->
+        <TabControl Margin="5">
+            <TabItem Header="Open Works">
+                <views:WorksGrid ItemsSource="{Binding OpenFiltered}"
+                                 FontSize="{Binding GridFontSize}"/>
+            </TabItem>
+            <TabItem Header="Closed Works">
+                <views:WorksGrid ItemsSource="{Binding ClosedFiltered}"
+                                 FontSize="{Binding GridFontSize}"/>
+            </TabItem>
+        </TabControl>
+    </DockPanel>
+</Window>
