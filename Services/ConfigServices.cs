@@ -5,7 +5,7 @@ namespace WorkshopTracker.Services
     public class ConfigService
     {
         // 🔒 Fixed base folder for ALL CSVs
-        private const string BaseFolderConst = @"S:\IT\20 - Workshop Tracker\";
+        private const string BaseFolderConst = @"S:\Public\DesignData\";
 
         public AppConfig Config { get; }
 

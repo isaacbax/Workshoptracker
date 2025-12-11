@@ -11,7 +11,7 @@ namespace WorkshopTracker.Services
     {
         private readonly ConfigService _config; // kept for ctor signature, not used
         // 🔒 Fixed admin folder for ALL workshop CSVs
-        private const string BaseFolder = @"S:\IT\20 - Workshop Tracker\";
+        private const string BaseFolder = @"S:\Public\DesignData\";
 
         // CSV header we will use when we create new files
         private const string Header =

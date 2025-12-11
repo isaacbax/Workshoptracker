@@ -10,7 +10,7 @@ namespace WorkshopTracker.Services
     public class UserService
     {
         // Fixed location for admin CSVs
-        private const string BaseFolder = @"S:\IT\20 - Workshop Tracker\";
+        private const string BaseFolder = @"S:\Public\DesignData\";
         private readonly string _usersPath;
 
         public string UsersPath => _usersPath;

@@ -89,13 +89,13 @@
         <Style x:Key="StatusCellStyle" TargetType="DataGridCell">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Status}" Value="quote">
-                    <Setter Property="Background" Value="SandyBrown"/>
+                    <Setter Property="Background" Value="LightBlue"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="picking">
-                    <Setter Property="Background" Value="LightYellow"/>
+                    <Setter Property="Background" Value="Purple"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="assembly">
-                    <Setter Property="Background" Value="Teal"/>
+                    <Setter Property="Background" Value="Green"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="balancing">
                     <Setter Property="Background" Value="Orange"/>
@@ -151,10 +151,22 @@
             </Style.Triggers>
         </Style>
 
-        <!-- DATE DUE via converter -->
+        <!-- DATE DUE cell template: whole cell background from converter -->
         <Style x:Key="DateDueCellStyle" TargetType="DataGridCell">
-            <Setter Property="Background"
-                    Value="{Binding DateDue, Converter={StaticResource DateDueToBrushConverter}}"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="DataGridCell">
+                        <Border BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                Background="{Binding DateDue, Converter={StaticResource DateDueToBrushConverter}}">
+                            <ContentPresenter SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"
+                                              HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                              Margin="{TemplateBinding Padding}"/>
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
 
         <!-- Group row style -->
@@ -274,9 +286,9 @@
                                 ItemsSource="{StaticResource DayDueOptions}"
                                 SelectedItemBinding="{Binding DayDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                            <!-- DATE DUE -->
+                            <!-- DATE DUE (full cell coloured) -->
                             <DataGridTemplateColumn Header="DATE DUE" Width="110"
-                                CellStyle="{StaticResource DateDueCellStyle}">
+                                                    CellStyle="{StaticResource DateDueCellStyle}">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <DatePicker SelectedDate="{Binding DateDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
@@ -397,8 +409,9 @@
                                 ItemsSource="{StaticResource DayDueOptions}"
                                 SelectedItemBinding="{Binding DayDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
+                            <!-- DATE DUE (full cell coloured) -->
                             <DataGridTemplateColumn Header="DATE DUE" Width="110"
-                                CellStyle="{StaticResource DateDueCellStyle}">
+                                                    CellStyle="{StaticResource DateDueCellStyle}">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <DatePicker SelectedDate="{Binding DateDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"

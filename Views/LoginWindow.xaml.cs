@@ -10,7 +10,7 @@ namespace WorkshopTracker
     public partial class LoginWindow : Window
     {
         // Adjust if your share path is slightly different
-        private const string BaseFolder = @"S:\IT\20 - Workshop Tracker\";
+        private const string BaseFolder = @"S:\Public\DesignData\";
         private const string UsersFileName = "users.csv";
 
         private class CsvUser
