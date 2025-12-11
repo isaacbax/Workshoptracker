@@ -1,125 +1,141 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using DesignSheet.Models;
-using DesignSheet.Services;
 
-namespace DesignSheet.ViewModels;
-
-public sealed class ChangePasswordViewModel : ViewModelBase
+namespace DesignSheet.ViewModels
 {
-    private readonly string _username;
-    private readonly string _dataFolder;
-    private readonly CsvStore _csvStore;
-
-    private string _currentPassword = "";
-    private string _newPassword = "";
-    private string _confirmPassword = "";
-
-    public ChangePasswordViewModel(string username, string dataFolder, CsvStore csvStore)
+    public class ChangePasswordViewModel : INotifyPropertyChanged
     {
-        _username = username;
-        _dataFolder = dataFolder;
-        _csvStore = csvStore;
+        public event PropertyChangedEventHandler? PropertyChanged;
+        public event EventHandler<bool>? RequestClose;
 
-        ConfirmChangePasswordCommand = new RelayCommand(_ => ChangePassword());
-    }
+        private readonly UserRecord _user;
+        private readonly string _usersCsvPath;
 
-    public string CurrentPassword
-    {
-        get => _currentPassword;
-        set => SetProperty(ref _currentPassword, value);
-    }
-
-    public string NewPassword
-    {
-        get => _newPassword;
-        set => SetProperty(ref _newPassword, value);
-    }
-
-    public string ConfirmPassword
-    {
-        get => _confirmPassword;
-        set => SetProperty(ref _confirmPassword, value);
-    }
-
-    public ICommand ConfirmChangePasswordCommand { get; }
-
-    private void ChangePassword()
-    {
-        if (string.IsNullOrWhiteSpace(_dataFolder))
+        private string _currentPassword = "";
+        public string CurrentPassword
         {
-            MessageBox.Show("No data folder configured.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
+            get => _currentPassword;
+            set { _currentPassword = value; OnPropertyChanged(nameof(CurrentPassword)); }
         }
 
-        var usersPath = Paths.UsersCsv(_dataFolder);
-        if (!System.IO.File.Exists(usersPath))
+        private string _newPassword = "";
+        public string NewPassword
         {
-            MessageBox.Show("users.csv not found.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            get => _newPassword;
+            set { _newPassword = value; OnPropertyChanged(nameof(NewPassword)); }
         }
 
-        UserRecord[] users;
-        try
+        private string _confirmPassword = "";
+        public string ConfirmPassword
         {
-            users = _csvStore.LoadUsers(_dataFolder);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error reading users.csv:\n{ex.Message}", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            get => _confirmPassword;
+            set { _confirmPassword = value; OnPropertyChanged(nameof(ConfirmPassword)); }
         }
 
-        var user = users.FirstOrDefault(u =>
-            string.Equals(u.Username, _username, StringComparison.OrdinalIgnoreCase));
+        public ICommand ConfirmCommand { get; }
+        public ICommand CancelCommand { get; }
 
-        if (user == null)
+        public ChangePasswordViewModel(UserRecord user, string usersCsvPath)
         {
-            MessageBox.Show("Current user not found in users.csv.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            _user = user;
+            _usersCsvPath = usersCsvPath;
+
+            ConfirmCommand = new RelayCommand(_ => Confirm());
+            CancelCommand = new RelayCommand(_ => RequestClose?.Invoke(this, false));
         }
 
-        if (user.Password != CurrentPassword)
-        {
-            MessageBox.Show("Current password is incorrect.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+        private void OnPropertyChanged(string name)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
 
-        if (string.IsNullOrWhiteSpace(NewPassword))
+        private void Confirm()
         {
-            MessageBox.Show("New password cannot be empty.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+            if (!string.Equals(CurrentPassword, _user.Password))
+            {
+                MessageBox.Show("Current password is incorrect.",
+                    "Change Password", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-        if (NewPassword != ConfirmPassword)
-        {
-            MessageBox.Show("New password and confirmation do not match.", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
-            return;
-        }
+            if (string.IsNullOrWhiteSpace(NewPassword))
+            {
+                MessageBox.Show("New password cannot be empty.",
+                    "Change Password", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-        user.Password = NewPassword;
+            if (!string.Equals(NewPassword, ConfirmPassword))
+            {
+                MessageBox.Show("New password and confirm password do not match.",
+                    "Change Password", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
 
-        try
-        {
-            _csvStore.SaveUsers(_dataFolder, users);
-        }
-        catch (Exception ex)
-        {
-            MessageBox.Show($"Error saving users.csv:\n{ex.Message}", "Change Password",
-                MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
-        }
+            try
+            {
+                if (!File.Exists(_usersCsvPath))
+                {
+                    MessageBox.Show("users.csv not found.", "Change Password",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
 
-        MessageBox.Show("Password changed successfully.", "Change Password",
-            MessageBoxButton.OK, MessageBoxImage.Information);
+                var lines = File.ReadAllLines(_usersCsvPath).ToList();
+                if (lines.Count <= 1)
+                {
+                    MessageBox.Show("users.csv is empty.", "Change Password",
+                        MessageBoxButton.OK, MessageBoxImage.Error);
+                    return;
+                }
+
+                string header = lines[0];
+                var body = new List<string>();
+
+                foreach (var line in lines.Skip(1))
+                {
+                    if (string.IsNullOrWhiteSpace(line))
+                        continue;
+
+                    var parts = line.Split(',');
+                    if (parts.Length < 3)
+                    {
+                        body.Add(line);
+                        continue;
+                    }
+
+                    var username = parts[0].Trim();
+                    if (username.Equals(_user.Username, StringComparison.OrdinalIgnoreCase))
+                    {
+                        parts[1] = NewPassword;
+                        body.Add(string.Join(",", parts));
+                    }
+                    else
+                    {
+                        body.Add(line);
+                    }
+                }
+
+                var newLines = new List<string> { header };
+                newLines.AddRange(body);
+                File.WriteAllLines(_usersCsvPath, newLines);
+
+                _user.Password = NewPassword;
+
+                MessageBox.Show("Password changed successfully.",
+                    "Change Password", MessageBoxButton.OK, MessageBoxImage.Information);
+
+                RequestClose?.Invoke(this, true);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error changing password: {ex.Message}",
+                    "Change Password", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
     }
 }

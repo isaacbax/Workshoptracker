@@ -4,18 +4,24 @@
         xmlns:views="clr-namespace:DesignSheet.Views"
         Title="Login"
         Height="260"
-        Width="420"
+        Width="460"
         WindowStartupLocation="CenterScreen"
         ResizeMode="NoResize">
 
     <Grid Margin="10">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
+            <!-- Title -->
             <RowDefinition Height="Auto"/>
+            <!-- Username -->
             <RowDefinition Height="Auto"/>
+            <!-- Password -->
             <RowDefinition Height="Auto"/>
+            <!-- Branch -->
+            <RowDefinition Height="Auto"/>
+            <!-- Folder -->
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <!-- Buttons -->
         </Grid.RowDefinitions>
 
         <Grid.ColumnDefinitions>
@@ -23,72 +29,84 @@
             <ColumnDefinition Width="*"/>
         </Grid.ColumnDefinitions>
 
+        <!-- Title -->
+        <TextBlock Grid.Row="0"
+                   Grid.ColumnSpan="2"
+                   Text="Workshop Tracker Login"
+                   FontSize="18"
+                   FontWeight="Bold"
+                   Margin="0,0,0,10"/>
+
         <!-- Username -->
-        <TextBlock Grid.Row="0" Grid.Column="0"
-                   Margin="0,0,8,8"
+        <TextBlock Grid.Row="1"
+                   Grid.Column="0"
                    VerticalAlignment="Center"
+                   Margin="0,0,8,0"
                    Text="Username:"/>
-        <TextBox Grid.Row="0" Grid.Column="1"
-                 Margin="0,0,0,8"
+        <TextBox Grid.Row="1"
+                 Grid.Column="1"
+                 MinWidth="220"
                  Text="{Binding Username, UpdateSourceTrigger=PropertyChanged}"/>
 
         <!-- Password -->
-        <TextBlock Grid.Row="1" Grid.Column="0"
-                   Margin="0,0,8,8"
+        <TextBlock Grid.Row="2"
+                   Grid.Column="0"
                    VerticalAlignment="Center"
+                   Margin="0,8,8,0"
                    Text="Password:"/>
-        <PasswordBox Grid.Row="1" Grid.Column="1"
-                     Margin="0,0,0,8"
+        <PasswordBox Grid.Row="2"
+                     Grid.Column="1"
+                     Margin="0,8,0,0"
                      views:PasswordBoxHelper.BindPassword="True"
                      views:PasswordBoxHelper.BoundPassword="{Binding Password, Mode=TwoWay}"/>
 
         <!-- Branch -->
-        <TextBlock Grid.Row="2" Grid.Column="0"
-                   Margin="0,0,8,8"
+        <TextBlock Grid.Row="3"
+                   Grid.Column="0"
                    VerticalAlignment="Center"
+                   Margin="0,8,8,0"
                    Text="Branch:"/>
-        <ComboBox Grid.Row="2" Grid.Column="1"
-                  Margin="0,0,0,8"
-                  ItemsSource="{Binding Branches}"
-                  SelectedItem="{Binding SelectedBranch, Mode=TwoWay}"
-                  IsEditable="False"/>
+        <ComboBox Grid.Row="3"
+                  Grid.Column="1"
+                  Margin="0,8,0,0"
+                  ItemsSource="{Binding AvailableBranches}"
+                  SelectedItem="{Binding SelectedBranch}"
+                  IsEnabled="{Binding IsRoot}"/>
 
-        <!-- Folder path + browse -->
-        <TextBlock Grid.Row="3" Grid.Column="0"
-                   Margin="0,0,8,8"
+        <!-- Data folder -->
+        <TextBlock Grid.Row="4"
+                   Grid.Column="0"
                    VerticalAlignment="Center"
+                   Margin="0,12,8,0"
                    Text="Data folder:"/>
-        <StackPanel Grid.Row="3" Grid.Column="1"
-                    Orientation="Horizontal"
-                    Margin="0,0,0,8">
-            <TextBox Width="260"
-                     Text="{Binding FolderPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"/>
+        <DockPanel Grid.Row="4"
+                   Grid.Column="1"
+                   Margin="0,12,0,0">
+            <TextBox Text="{Binding FolderPath, Mode=TwoWay}"
+                     IsReadOnly="True"
+                     VerticalAlignment="Center"
+                     MinWidth="220"/>
             <Button Content="Browse..."
-                    Width="70"
-                    Margin="5,0,0,0"
-                    Click="Browse_Click"/>
-        </StackPanel>
-
-        <!-- Error text -->
-        <TextBlock Grid.Row="4" Grid.ColumnSpan="2"
-                   Margin="0,0,0,8"
-                   Text="{Binding ErrorMessage}"
-                   Foreground="Red"
-                   TextWrapping="Wrap"/>
+                    Margin="8,0,0,0"
+                    Padding="8,2"
+                    Command="{Binding BrowseFolderCommand}"/>
+        </DockPanel>
 
         <!-- Buttons -->
-        <StackPanel Grid.Row="5" Grid.ColumnSpan="2"
+        <StackPanel Grid.Row="5"
+                    Grid.ColumnSpan="2"
                     Orientation="Horizontal"
-                    HorizontalAlignment="Right">
+                    HorizontalAlignment="Right"
+                    Margin="0,20,0,0">
             <Button Content="Login"
-                    Width="80"
-                    Margin="0,0,5,0"
+                    Width="90"
+                    Margin="0,0,8,0"
                     IsDefault="True"
-                    Click="Login_Click"/>
+                    Command="{Binding LoginCommand}"/>
             <Button Content="Cancel"
-                    Width="80"
+                    Width="90"
                     IsCancel="True"
-                    Click="Cancel_Click"/>
+                    Command="{Binding CancelCommand}"/>
         </StackPanel>
     </Grid>
 </Window>

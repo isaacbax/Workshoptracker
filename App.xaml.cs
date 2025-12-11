@@ -3,37 +3,43 @@ using DesignSheet.Models;
 using DesignSheet.ViewModels;
 using DesignSheet.Views;
 
-namespace DesignSheet;
-
-public partial class App : Application
+namespace DesignSheet
 {
-    protected override void OnStartup(StartupEventArgs e)
+    public partial class App : Application
     {
-        base.OnStartup(e);
-
-        // Show login window first
-        var loginVm = new LoginViewModel();
-        var loginWindow = new LoginWindow
+        private void Application_Startup(object sender, StartupEventArgs e)
         {
-            DataContext = loginVm
-        };
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-        bool? result = loginWindow.ShowDialog();
-
-        // Login successful
-        if (result == true && loginVm.SelectedUser != null && !string.IsNullOrWhiteSpace(loginVm.FolderPath))
-        {
-            var mainVm = new MainViewModel(loginVm.FolderPath, loginVm.SelectedUser);
-            var mainWindow = new MainWindow
+            var loginVm = new LoginViewModel();
+            var loginWindow = new LoginWindow
             {
-                DataContext = mainVm
+                DataContext = loginVm
             };
-            mainWindow.Show();
-        }
-        else
-        {
-            // Cancelled or failed login
-            Shutdown();
+
+            bool? result = loginWindow.ShowDialog();
+
+            if (result == true && loginVm.SelectedUser != null)
+            {
+                string dataFolder = string.IsNullOrWhiteSpace(loginVm.FolderPath)
+                    ? @"S:\IT\20 - Workshop Tracker"
+                    : loginVm.FolderPath;
+
+                var mainVm = new MainViewModel(dataFolder, loginVm.SelectedUser);
+
+                var mainWindow = new MainWindow
+                {
+                    DataContext = mainVm
+                };
+
+                MainWindow = mainWindow;
+                ShutdownMode = ShutdownMode.OnMainWindowClose;
+                mainWindow.Show();
+            }
+            else
+            {
+                Shutdown();
+            }
         }
     }
 }

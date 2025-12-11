@@ -2,7 +2,6 @@
 using System.Globalization;
 using System.Windows.Data;
 using System.Windows.Media;
-using DesignSheet.Models;
 
 namespace DesignSheet.Views
 {
@@ -11,14 +10,17 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var v = (value as string)?.Trim().ToUpperInvariant();
-            return v == "Y"
-                ? new SolidColorBrush(Color.FromRgb(198, 239, 206))  // light green
-                : Brushes.Transparent;
+            var s = (value as string)?.Trim().ToUpperInvariant();
+            return s switch
+            {
+                "Y" => new SolidColorBrush(Color.FromRgb(198, 239, 206)), // light green
+                "N" => Brushes.Transparent,
+                _ => Brushes.Transparent
+            };
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
     // OE (Y/N/A/L) -> background
@@ -26,19 +28,18 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var v = (value as string)?.Trim().ToUpperInvariant();
-
-            return v switch
+            var s = (value as string)?.Trim().ToUpperInvariant();
+            return s switch
             {
-                "Y" => new SolidColorBrush(Color.FromRgb(189, 215, 238)),  // blue-ish
+                "Y" => new SolidColorBrush(Color.FromRgb(189, 215, 238)), // blue-ish
                 "N" => Brushes.Transparent,
-                "A/L" => new SolidColorBrush(Color.FromRgb(255, 242, 204)),  // light yellow
+                "A/L" => new SolidColorBrush(Color.FromRgb(255, 242, 204)), // pale yellow
                 _ => Brushes.Transparent
             };
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
     // DAY DUE (mon–fri) -> background
@@ -46,9 +47,8 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var v = (value as string)?.Trim().ToLowerInvariant();
-
-            return v switch
+            var s = (value as string)?.Trim().ToLowerInvariant();
+            return s switch
             {
                 "mon" => new SolidColorBrush(Color.FromRgb(221, 235, 247)),
                 "tues" => new SolidColorBrush(Color.FromRgb(221, 235, 247)),
@@ -60,33 +60,37 @@ namespace DesignSheet.Views
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
-    // DATE DUE -> red / yellow / green
+    // DATE DUE: < today red, == today yellow, > today green
     public sealed class DueDateToBrushConverter : IValueConverter
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var text = value as string;
-            if (string.IsNullOrWhiteSpace(text))
+            if (value == null)
                 return Brushes.Transparent;
 
-            if (!DateTime.TryParse(text, CultureInfo.CurrentCulture, DateTimeStyles.None, out var date))
+            DateTime date;
+            if (value is DateTime dt)
+            {
+                date = dt;
+            }
+            else if (!DateTime.TryParse(value.ToString(), out date))
+            {
                 return Brushes.Transparent;
+            }
 
             var today = DateTime.Today;
-
             if (date.Date < today)
                 return new SolidColorBrush(Color.FromRgb(255, 199, 206)); // red-ish
             if (date.Date == today)
                 return new SolidColorBrush(Color.FromRgb(255, 235, 156)); // yellow-ish
-
             return new SolidColorBrush(Color.FromRgb(198, 239, 206));     // green-ish
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
     // STATUS -> background
@@ -94,9 +98,8 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var v = (value as string)?.Trim().ToLowerInvariant() ?? "";
-
-            return v switch
+            var s = (value as string)?.Trim().ToLowerInvariant();
+            return s switch
             {
                 "quote" => new SolidColorBrush(Color.FromRgb(221, 235, 247)),
                 "picking" => new SolidColorBrush(Color.FromRgb(252, 228, 214)),
@@ -112,7 +115,7 @@ namespace DesignSheet.Views
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
     // SHAFT -> background
@@ -120,8 +123,8 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var v = (value as string)?.Trim().ToLowerInvariant();
-            return v switch
+            var s = (value as string)?.Trim().ToLowerInvariant();
+            return s switch
             {
                 "domestic" => new SolidColorBrush(Color.FromRgb(221, 235, 247)),
                 "industrial" => new SolidColorBrush(Color.FromRgb(237, 201, 175)),
@@ -130,7 +133,7 @@ namespace DesignSheet.Views
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 
     // PRIORITY (Y) -> whole row pink
@@ -138,54 +141,51 @@ namespace DesignSheet.Views
     {
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            if (value is WorkRowView view && !view.IsSeparator && view.Row != null)
+            var s = (value as string)?.Trim().ToUpperInvariant();
+            if (s == "Y")
+                return new SolidColorBrush(Color.FromRgb(255, 192, 203)); // pink
+
+            return Brushes.Transparent;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => Binding.DoNothing;
+    }
+
+    // IsSeparator bool -> IsEnabled
+    public sealed class SeparatorEnabledConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool isSeparator)
+                return !isSeparator; // separator rows disabled
+
+            return true;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+            => Binding.DoNothing;
+    }
+
+    // CUSTOMER background sand when SHAFT = industrial
+    public sealed class CustomerShaftBrushConverter : IValueConverter
+    {
+        private static readonly Brush SandBrush =
+            new SolidColorBrush(Color.FromRgb(237, 201, 175));
+
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            var shaft = (value as string)?.Trim();
+            if (!string.IsNullOrEmpty(shaft) &&
+                shaft.Equals("industrial", StringComparison.OrdinalIgnoreCase))
             {
-                var v = (view.Row.PRIORITY ?? "").Trim().ToUpperInvariant();
-                if (v == "Y")
-                {
-                    return new SolidColorBrush(Color.FromRgb(255, 192, 203)); // pink
-                }
+                return SandBrush;
             }
 
             return Brushes.Transparent;
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
-    }
-
-    // Separator row enabled/disabled
-    public sealed class SeparatorEnabledConverter : IValueConverter
-    {
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            if (value is bool isSeparator)
-                return !isSeparator;
-
-            return true;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
-    }
-
-    // CUSTOMER cell sand when SHAFT = industrial
-    public sealed class CustomerShaftBrushConverter : IValueConverter
-    {
-        private static readonly Brush SandBrush =
-            new SolidColorBrush(Color.FromRgb(237, 201, 175)); // sand colour
-
-        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
-        {
-            var shaft = (value as string)?.Trim() ?? string.Empty;
-
-            if (shaft.Equals("industrial", StringComparison.OrdinalIgnoreCase))
-                return SandBrush;
-
-            return Brushes.Transparent;
-        }
-
-        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
-            => throw new NotSupportedException();
+            => Binding.DoNothing;
     }
 }
