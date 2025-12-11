@@ -89,13 +89,13 @@
         <Style x:Key="StatusCellStyle" TargetType="DataGridCell">
             <Style.Triggers>
                 <DataTrigger Binding="{Binding Status}" Value="quote">
-                    <Setter Property="Background" Value="LightBlue"/>
+                    <Setter Property="Background" Value="SandyBrown"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="picking">
-                    <Setter Property="Background" Value="Purple"/>
+                    <Setter Property="Background" Value="LightYellow"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="assembly">
-                    <Setter Property="Background" Value="Green"/>
+                    <Setter Property="Background" Value="Teal"/>
                 </DataTrigger>
                 <DataTrigger Binding="{Binding Status}" Value="balancing">
                     <Setter Property="Background" Value="Orange"/>
