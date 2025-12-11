@@ -43,7 +43,7 @@ namespace WorkshopTracker.Converters
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            // One-way converter – we never convert the brush back to a DateTime
+            // One-way converter – not needed in reverse
             return Binding.DoNothing;
         }
     }

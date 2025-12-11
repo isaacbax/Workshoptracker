@@ -6,7 +6,7 @@
         xmlns:sys="clr-namespace:System;assembly=mscorlib"
         xmlns:conv="clr-namespace:WorkshopTracker.Converters"
         mc:Ignorable="d"
-        Title="Workshop Tracker"
+        Title=" "
         Width="1400"
         Height="800"
         WindowStartupLocation="CenterScreen">
@@ -55,7 +55,7 @@
             <sys:String>N</sys:String>
         </x:Array>
 
-        <!-- Your existing converter -->
+        <!-- Converter for DATE DUE background -->
         <conv:DateDueToBrushConverter x:Key="DateDueToBrushConverter" />
 
         <!-- RETAIL: Y=Orange N=Red -->
@@ -171,44 +171,59 @@
     </Window.Resources>
 
     <DockPanel>
-        <!-- Top toolbar -->
-        <ToolBar DockPanel.Dock="Top">
-            <Button Content="Reload"
-                    Click="Reload_Click"
-                    Margin="0,0,5,0"/>
-            <Button Content="Save (backup)"
-                    Click="Save_Click"
-                    Margin="0,0,5,0"/>
-            <Button Content="Delete row"
-                    Click="DeleteRow_Click"
-                    Margin="0,0,20,0"/>
+        <!-- Single teal header / toolbar -->
+        <Border DockPanel.Dock="Top" Background="#FF00AAA8">
+            <ToolBar Background="Transparent">
+                <TextBlock Text="Workshop Tracker"
+                           Foreground="White"
+                           FontSize="18"
+                           FontWeight="Bold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,20,0"/>
 
-            <TextBlock Text="Search:"
-                       VerticalAlignment="Center"
-                       Margin="0,0,5,0"/>
-            <TextBox x:Name="SearchTextBox"
-                     Width="200"
-                     TextChanged="SearchTextBox_TextChanged"/>
+                <Button Content="Reload"
+                        Click="Reload_Click"
+                        Margin="0,0,5,0"
+                        Foreground="White"/>
+                <Button Content="Save (backup)"
+                        Click="Save_Click"
+                        Margin="0,0,5,0"
+                        Foreground="White"/>
+                <Button Content="Delete row"
+                        Click="DeleteRow_Click"
+                        Margin="0,0,20,0"
+                        Foreground="White"/>
 
-            <Separator Width="20"/>
+                <TextBlock Text="Search:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,5,0"
+                           Foreground="White"/>
+                <TextBox x:Name="SearchTextBox"
+                         Width="200"
+                         TextChanged="SearchTextBox_TextChanged"/>
 
-            <TextBlock Text="Font size:"
-                       VerticalAlignment="Center"
-                       Margin="0,0,5,0"/>
-            <ComboBox x:Name="FontSizeComboBox"
-                      Width="100"
-                      SelectedIndex="0"
-                      SelectionChanged="FontSizeComboBox_SelectionChanged">
-                <ComboBoxItem Content="Standard" Tag="12"/>
-                <ComboBoxItem Content="Medium"  Tag="14"/>
-                <ComboBoxItem Content="Large"   Tag="16"/>
-            </ComboBox>
+                <Separator Width="20"/>
 
-            <Separator Width="20"/>
+                <TextBlock Text="Font size:"
+                           VerticalAlignment="Center"
+                           Margin="0,0,5,0"
+                           Foreground="White"/>
+                <ComboBox x:Name="FontSizeComboBox"
+                          Width="100"
+                          SelectedIndex="0"
+                          SelectionChanged="FontSizeComboBox_SelectionChanged">
+                    <ComboBoxItem Content="Standard" Tag="12"/>
+                    <ComboBoxItem Content="Medium"  Tag="14"/>
+                    <ComboBoxItem Content="Large"   Tag="16"/>
+                </ComboBox>
 
-            <TextBlock x:Name="StatusTextBlock"
-                       VerticalAlignment="Center"/>
-        </ToolBar>
+                <Separator Width="20"/>
+
+                <TextBlock x:Name="StatusTextBlock"
+                           VerticalAlignment="Center"
+                           Foreground="White"/>
+            </ToolBar>
+        </Border>
 
         <TabControl x:Name="WorksTabControl">
             <!-- ========== OPEN WORKS ========== -->
@@ -259,7 +274,7 @@
                                 ItemsSource="{StaticResource DayDueOptions}"
                                 SelectedItemBinding="{Binding DayDue, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
 
-                            <!-- DATE DUE (fully coloured) -->
+                            <!-- DATE DUE -->
                             <DataGridTemplateColumn Header="DATE DUE" Width="110"
                                 CellStyle="{StaticResource DateDueCellStyle}">
                                 <DataGridTemplateColumn.CellTemplate>
